@@ -9,38 +9,161 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as CriarRouteImport } from './routes/criar'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SucessoIdRouteImport } from './routes/sucesso.$id'
+import { Route as OfertaIdRouteImport } from './routes/oferta.$id'
+import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CriarRoute = CriarRouteImport.update({
+  id: '/criar',
+  path: '/criar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SucessoIdRoute = SucessoIdRouteImport.update({
+  id: '/sucesso/$id',
+  path: '/sucesso/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfertaIdRoute = OfertaIdRouteImport.update({
+  id: '/oferta/$id',
+  path: '/oferta/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutIdRoute = CheckoutIdRouteImport.update({
+  id: '/checkout/$id',
+  path: '/checkout/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
+  id: '/api/public/asaas-webhook',
+  path: '/api/public/asaas-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/criar': typeof CriarRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/checkout/$id': typeof CheckoutIdRoute
+  '/oferta/$id': typeof OfertaIdRoute
+  '/sucesso/$id': typeof SucessoIdRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/criar': typeof CriarRoute
+  '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/checkout/$id': typeof CheckoutIdRoute
+  '/oferta/$id': typeof OfertaIdRoute
+  '/sucesso/$id': typeof SucessoIdRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/criar': typeof CriarRoute
+  '/login': typeof LoginRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/checkout/$id': typeof CheckoutIdRoute
+  '/oferta/$id': typeof OfertaIdRoute
+  '/sucesso/$id': typeof SucessoIdRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/criar'
+    | '/login'
+    | '/admin'
+    | '/checkout/$id'
+    | '/oferta/$id'
+    | '/sucesso/$id'
+    | '/api/public/asaas-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/criar'
+    | '/login'
+    | '/admin'
+    | '/checkout/$id'
+    | '/oferta/$id'
+    | '/sucesso/$id'
+    | '/api/public/asaas-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/criar'
+    | '/login'
+    | '/_authenticated/admin'
+    | '/checkout/$id'
+    | '/oferta/$id'
+    | '/sucesso/$id'
+    | '/api/public/asaas-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  CriarRoute: typeof CriarRoute
+  LoginRoute: typeof LoginRoute
+  CheckoutIdRoute: typeof CheckoutIdRoute
+  OfertaIdRoute: typeof OfertaIdRoute
+  SucessoIdRoute: typeof SucessoIdRoute
+  ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/criar': {
+      id: '/criar'
+      path: '/criar'
+      fullPath: '/criar'
+      preLoaderRoute: typeof CriarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,12 +171,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sucesso/$id': {
+      id: '/sucesso/$id'
+      path: '/sucesso/$id'
+      fullPath: '/sucesso/$id'
+      preLoaderRoute: typeof SucessoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oferta/$id': {
+      id: '/oferta/$id'
+      path: '/oferta/$id'
+      fullPath: '/oferta/$id'
+      preLoaderRoute: typeof OfertaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/$id': {
+      id: '/checkout/$id'
+      path: '/checkout/$id'
+      fullPath: '/checkout/$id'
+      preLoaderRoute: typeof CheckoutIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/asaas-webhook': {
+      id: '/api/public/asaas-webhook'
+      path: '/api/public/asaas-webhook'
+      fullPath: '/api/public/asaas-webhook'
+      preLoaderRoute: typeof ApiPublicAsaasWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  CriarRoute: CriarRoute,
+  LoginRoute: LoginRoute,
+  CheckoutIdRoute: CheckoutIdRoute,
+  OfertaIdRoute: OfertaIdRoute,
+  SucessoIdRoute: SucessoIdRoute,
+  ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
