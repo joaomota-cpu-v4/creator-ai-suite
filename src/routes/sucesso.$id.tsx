@@ -1,7 +1,9 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { getOrderPublic, getStickerPublic } from "@/lib/sticker.functions";
+import { checkOrderStatus } from "@/lib/asaas.functions";
 import { Check, Copy, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,6 +14,7 @@ function Sucesso() {
   const { id } = useParams({ from: "/sucesso/$id" });
   const fetchOrder = useServerFn(getOrderPublic);
   const fetchSticker = useServerFn(getStickerPublic);
+  const checkStatus = useServerFn(checkOrderStatus);
 
   const order = useQuery({
     queryKey: ["order", id],
@@ -20,18 +23,29 @@ function Sucesso() {
   });
   const sticker = useQuery({ queryKey: ["sticker", id], queryFn: () => fetchSticker({ data: { id } }) });
 
+  // Polling fallback ao Asaas direto (caso webhook não chegue)
+  useEffect(() => {
+    if (order.data?.status === "CONFIRMED") return;
+    const t = setInterval(() => {
+      checkStatus({ data: { stickerId: id } }).then((r) => {
+        if (r.status === "CONFIRMED") order.refetch();
+      }).catch(() => {});
+    }, 8000);
+    return () => clearInterval(t);
+  }, [order.data?.status, id, checkStatus, order]);
+
   const confirmed = order.data?.status === "CONFIRMED";
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
-      <div className="container mx-auto max-w-xl px-4 py-10">
+      <div className="container mx-auto max-w-md px-4 py-6">
         {confirmed ? (
-          <div className="rounded-3xl bg-white p-8 text-center shadow-2xl">
+          <div className="rounded-3xl bg-white p-6 text-center shadow-2xl">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-copa-green text-white">
               <Check className="h-8 w-8" />
             </div>
             <h1 className="mt-4 font-display text-3xl text-primary">Pagamento confirmado! 🎉</h1>
-            <p className="mt-2 text-muted-foreground">Sua figurinha está pronta. Também enviamos para o seu e-mail.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Sua figurinha está pronta. Também enviamos para o seu e-mail.</p>
             {sticker.data?.figurinha_url && (
               <>
                 <img src={sticker.data.figurinha_url} alt="figurinha" className="mx-auto mt-6 w-full max-w-xs rounded-2xl shadow-xl" />
@@ -44,30 +58,41 @@ function Sucesso() {
             )}
           </div>
         ) : order.data?.metodo === "PIX" ? (
-          <div className="rounded-3xl bg-white p-6 text-center shadow-2xl">
-            <h1 className="font-display text-3xl text-primary">Pague o PIX para liberar</h1>
-            <p className="text-sm text-muted-foreground">A liberação é automática.</p>
-            {order.data.pix_qr_code && <img src={order.data.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-56" />}
-            {order.data.pix_copy_paste && (
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={() => {
-                  navigator.clipboard.writeText(order.data!.pix_copy_paste!);
-                  toast.success("Código PIX copiado");
-                }}
-              >
-                <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
-              </Button>
+          <div className="rounded-3xl bg-white p-5 text-center shadow-2xl">
+            <h1 className="font-display text-2xl text-primary">Pague o PIX para liberar</h1>
+            <p className="text-xs text-muted-foreground">A liberação é automática em segundos.</p>
+            {order.data.pix_qr_code ? (
+              <img src={order.data.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-52" />
+            ) : (
+              <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs text-muted-foreground">
+                QR Code indisponível. Use o código copia e cola abaixo.
+              </div>
             )}
-            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            {order.data.pix_copy_paste && (
+              <>
+                <div className="mt-3 break-all rounded-lg bg-muted p-2 text-[10px] text-muted-foreground">
+                  {order.data.pix_copy_paste}
+                </div>
+                <Button
+                  variant="outline"
+                  className="mt-3 w-full"
+                  onClick={() => {
+                    navigator.clipboard.writeText(order.data!.pix_copy_paste!);
+                    toast.success("Código PIX copiado");
+                  }}
+                >
+                  <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
+                </Button>
+              </>
+            )}
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Aguardando pagamento...
             </div>
           </div>
         ) : (
           <div className="rounded-3xl bg-white p-8 text-center shadow-2xl">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-            <p className="mt-2 text-muted-foreground">Processando seu pagamento...</p>
+            <p className="mt-2 text-sm text-muted-foreground">Processando seu pagamento...</p>
           </div>
         )}
       </div>

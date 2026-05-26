@@ -67,13 +67,16 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId }: { nome
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
-  const prompt = `Crie uma figurinha de álbum estilo Panini Copa do Mundo 2026 com a criança da foto enviada. 
-Use o rosto da foto como referência (mantenha as feições da criança). 
-Vista a criança com uniforme oficial de futebol ${clube ? `do ${clube}` : "verde e amarelo do Brasil"}. 
-Pose dinâmica de craque, com bola, em campo de futebol ao fundo.
-Borda dourada brilhante de figurinha colecionável, fundo holográfico azul e amarelo.
-No rodapé da figurinha, escreva o nome "${nome.toUpperCase()}" em letras grandes brancas.
-Estilo: ilustração realista premium, cores vibrantes, iluminação dramática de estádio.`;
+  const time = clube?.toLowerCase().includes("brasil") || !clube ? "Seleção Brasileira (amarela com detalhes verdes)" : clube;
+  const prompt = `FOTOGRAFIA REALISTA estilo figurinha Panini Copa do Mundo 2026.
+
+INSTRUÇÃO CRÍTICA: Preserve EXATAMENTE o rosto, traços, cor de pele, cabelo e expressão da pessoa da foto enviada. NÃO desenhe, NÃO cartoonize. Mantenha o rosto fotográfico real, apenas integrado no novo cenário.
+
+CENA: A pessoa veste o uniforme oficial de futebol do ${time}, fotografia de corpo inteiro ou meio corpo, pose de jogador profissional (braços cruzados ou bola sob o braço), em um estádio de futebol com torcida desfocada ao fundo, iluminação dramática de holofotes.
+
+ENQUADRAMENTO: Figurinha colecionável retangular vertical (proporção 3:4). Borda dourada metálica brilhante. Fundo holográfico sutil verde e amarelo nas laterais. No rodapé da figurinha, em letras grandes brancas com sombra: "${nome.toUpperCase()}". No topo, pequena bandeira do Brasil 🇧🇷.
+
+ESTILO: Fotorrealista, qualidade 4K, cores vibrantes, iluminação cinematográfica. NUNCA estilo desenho, anime ou cartoon.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -82,7 +85,7 @@ Estilo: ilustração realista premium, cores vibrantes, iluminação dramática 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
+      model: "google/gemini-3-pro-image-preview",
       messages: [
         {
           role: "user",

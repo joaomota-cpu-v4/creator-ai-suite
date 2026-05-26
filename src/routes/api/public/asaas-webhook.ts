@@ -5,6 +5,16 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Validação do token configurado no painel Asaas (header asaas-access-token)
+        const expected = process.env.ASAAS_WEBHOOK_TOKEN;
+        if (expected) {
+          const got = request.headers.get("asaas-access-token") || request.headers.get("Asaas-Access-Token");
+          if (got !== expected) {
+            console.warn("Webhook token inválido");
+            return new Response("invalid token", { status: 401 });
+          }
+        }
+
         const body = await request.json().catch(() => ({} as any));
         const event = body?.event as string | undefined;
         const payment = body?.payment;
@@ -24,7 +34,6 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
 
         if (paid && order?.sticker_id) {
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
-          // TODO: enviar e-mail com figurinha (requer domínio configurado).
         }
 
         return new Response("ok", { status: 200 });
