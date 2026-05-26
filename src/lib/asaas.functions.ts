@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const ASAAS_BASE = "https://api-sandbox.asaas.com/v3"; // sandbox por padrão
+const ASAAS_BASE = "https://api-sandbox.asaas.com/v3";
 
 async function asaas(path: string, init?: RequestInit) {
   const key = process.env.ASAAS_API_KEY;
@@ -10,8 +10,9 @@ async function asaas(path: string, init?: RequestInit) {
   const res = await fetch(`${ASAAS_BASE}${path}`, {
     ...init,
     headers: {
-      "access_token": key,
+      access_token: key,
       "Content-Type": "application/json",
+      "User-Agent": "FigurinhaCopa/1.0",
       ...(init?.headers || {}),
     },
   });
@@ -19,16 +20,36 @@ async function asaas(path: string, init?: RequestInit) {
   let json: any;
   try { json = JSON.parse(text); } catch { json = { raw: text }; }
   if (!res.ok) {
-    console.error("Asaas error", res.status, json);
-    throw new Error(json?.errors?.[0]?.description || `Asaas ${res.status}`);
+    console.error("Asaas error", res.status, path, json);
+    const msg = json?.errors?.[0]?.description || json?.raw || `Asaas ${res.status}`;
+    throw new Error(msg);
   }
   return json;
+}
+
+async function getOrCreateCustomer(input: { nome: string; cpfCnpj: string; email: string; phone: string }) {
+  // Try find existing by cpfCnpj
+  try {
+    const list = await asaas(`/customers?cpfCnpj=${encodeURIComponent(input.cpfCnpj)}`);
+    if (list?.data?.[0]?.id) return list.data[0];
+  } catch (e) {
+    console.warn("customer lookup failed, will create", e);
+  }
+  return asaas("/customers", {
+    method: "POST",
+    body: JSON.stringify({
+      name: input.nome,
+      cpfCnpj: input.cpfCnpj,
+      email: input.email,
+      mobilePhone: input.phone,
+    }),
+  });
 }
 
 const CheckoutInput = z.object({
   sticker_id: z.string().uuid(),
   nome: z.string().min(2),
-  cpf: z.string().min(11).max(14),
+  cpf: z.string().min(11).max(20),
   email: z.string().email(),
   telefone: z.string().min(8).max(20),
   metodo: z.enum(["PIX", "CREDIT_CARD"]),
@@ -44,19 +65,20 @@ const CheckoutInput = z.object({
 export const createAsaasPayment = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data }) => {
-    // 1. Get/create customer
     const cpfClean = data.cpf.replace(/\D/g, "");
-    const customer = await asaas("/customers", {
-      method: "POST",
-      body: JSON.stringify({
-        name: data.nome,
-        cpfCnpj: cpfClean,
-        email: data.email,
-        mobilePhone: data.telefone.replace(/\D/g, ""),
-      }),
+    const phoneClean = data.telefone.replace(/\D/g, "");
+
+    if (cpfClean.length !== 11 && cpfClean.length !== 14) {
+      throw new Error("CPF inválido. Digite 11 dígitos.");
+    }
+
+    const customer = await getOrCreateCustomer({
+      nome: data.nome,
+      cpfCnpj: cpfClean,
+      email: data.email,
+      phone: phoneClean,
     });
 
-    // 2. Create payment
     const due = new Date();
     due.setDate(due.getDate() + 1);
     const dueDate = due.toISOString().slice(0, 10);
@@ -83,7 +105,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
         cpfCnpj: cpfClean,
         postalCode: "01001000",
         addressNumber: "0",
-        phone: data.telefone.replace(/\D/g, ""),
+        phone: phoneClean,
       };
     }
 
@@ -92,9 +114,13 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     let pixQr: string | null = null;
     let pixCopy: string | null = null;
     if (data.metodo === "PIX") {
-      const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
-      pixQr = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : null;
-      pixCopy = qr.payload || null;
+      try {
+        const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
+        pixQr = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : null;
+        pixCopy = qr.payload || null;
+      } catch (e) {
+        console.error("PIX QR fetch failed", e);
+      }
     }
 
     const status = payment.status === "CONFIRMED" || payment.status === "RECEIVED" ? "CONFIRMED" : "PENDING";
@@ -109,7 +135,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       pix_copy_paste: pixCopy,
       invoice_url: payment.invoiceUrl || null,
       cpf: cpfClean,
-      telefone: data.telefone,
+      telefone: phoneClean,
     }).select().single();
     if (error) throw new Error(error.message);
 
@@ -118,4 +144,38 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     }
 
     return { orderId: order.id, status, pixQr, pixCopy, invoiceUrl: payment.invoiceUrl || null };
+  });
+
+// Polling fallback: checa status no Asaas para pedidos pendentes
+export const checkOrderStatus = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ stickerId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("id, asaas_payment_id, status, sticker_id")
+      .eq("sticker_id", data.stickerId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!order || order.status === "CONFIRMED" || !order.asaas_payment_id) return { status: order?.status || null };
+
+    try {
+      const p = await asaas(`/payments/${order.asaas_payment_id}`);
+      if (p.status === "CONFIRMED" || p.status === "RECEIVED") {
+        const { data: updated } = await supabaseAdmin
+          .from("orders")
+          .update({ status: "CONFIRMED" })
+          .eq("id", order.id)
+          .eq("status", "PENDING")
+          .select()
+          .maybeSingle();
+        if (updated) {
+          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
+        }
+        return { status: "CONFIRMED" };
+      }
+    } catch (e) {
+      console.error("checkOrderStatus failed", e);
+    }
+    return { status: order.status };
   });

@@ -1,89 +1,108 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Trophy, ShieldCheck } from "lucide-react";
+import { Sparkles, Zap, Trophy, ShieldCheck, Star, Camera } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
 function Landing() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
-      <header className="container mx-auto flex items-center justify-between px-6 py-5">
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-2">
-          <Trophy className="h-7 w-7 text-primary" />
-          <span className="font-display text-2xl text-primary">FIGURINHA COPA</span>
+          <Trophy className="h-6 w-6 text-primary" />
+          <span className="font-display text-xl text-primary">FIGURINHA COPA</span>
         </div>
-        <Link to="/login" className="text-sm font-medium text-primary/80 hover:text-primary">
+        <Link to="/login" className="text-xs font-medium text-primary/70 hover:text-primary">
           Admin
         </Link>
       </header>
 
-      <main className="container mx-auto grid gap-12 px-6 py-10 md:grid-cols-2 md:items-center md:py-20">
-        <div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> Edição Copa 2026
-          </span>
-          <h1 className="mt-4 font-display text-5xl leading-tight text-primary md:text-7xl">
-            Transforme seu filho em uma <span className="text-copa-red">figurinha</span> da Copa do Mundo
-          </h1>
-          <p className="mt-5 max-w-lg text-lg text-primary/80">
-            Em menos de 2 minutos, nossa IA gera uma figurinha personalizada estilo álbum oficial — com nome, clube e estatísticas do craque da casa.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button asChild size="lg" className="h-14 rounded-xl bg-primary text-lg font-bold text-primary-foreground hover:bg-primary/90">
-              <Link to="/criar">⚽ Criar minha figurinha</Link>
-            </Button>
-            <div className="flex items-center gap-2 text-sm text-primary/80">
-              <ShieldCheck className="h-4 w-4" /> Pagamento seguro · PIX ou cartão
-            </div>
+      {/* Hero quiz-style */}
+      <main className="px-5 pb-10">
+        <div className="mx-auto max-w-md">
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <span className="rounded-full bg-copa-green px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+              🇧🇷 Edição Brasil 2026
+            </span>
           </div>
-          <div className="mt-8 flex flex-wrap gap-6 text-sm text-primary/80">
-            <div className="flex items-center gap-2"><Zap className="h-4 w-4" /> Pronta em 2 min</div>
-            <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Qualidade Panini</div>
-            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Gerada por IA</div>
-          </div>
-        </div>
 
-        <div className="relative mx-auto w-full max-w-md">
-          <div className="relative aspect-[3/4]">
-            <FakeSticker rotate={-8} offset="left-0 top-6" name="LUCAS" club="BRA" num="10" tone="#0033A0" />
-            <FakeSticker rotate={6} offset="right-0 top-0" name="PEDRO" club="ARG" num="7" tone="#00A859" />
-            <FakeSticker rotate={-2} offset="left-1/2 -translate-x-1/2 top-16" name="JOÃO" club="ESP" num="9" tone="#c0392b" />
+          <h1 className="text-center font-display text-4xl leading-[1.05] text-primary sm:text-5xl">
+            Seu filho na <span className="text-copa-red">capa da Copa</span> em 2 minutos
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-sm text-center text-base text-primary/80">
+            Responda 4 perguntinhas, envie uma foto e nossa IA cria uma figurinha realista do seu pequeno craque.
+          </p>
+
+          {/* Sticker stack visual */}
+          <div className="relative mx-auto mt-6 h-72 w-full max-w-xs">
+            <FakeSticker rotate={-10} pos="left-0 top-6" name="LUCAS" club="BRA" num="10" tone="#0033A0" />
+            <FakeSticker rotate={8} pos="right-0 top-2" name="PEDRO" club="BRA" num="7" tone="#00A859" />
+            <FakeSticker rotate={-2} pos="left-1/2 -translate-x-1/2 top-14" name="JOÃO" club="BRA" num="9" tone="#c0392b" />
+          </div>
+
+          {/* Big CTA */}
+          <Button asChild size="lg" className="mt-6 h-16 w-full rounded-2xl bg-copa-green text-lg font-bold text-white shadow-xl hover:bg-copa-green/90">
+            <Link to="/criar">
+              <Camera className="mr-2 h-5 w-5" /> Começar — é grátis tentar
+            </Link>
+          </Button>
+
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary/70">
+            <ShieldCheck className="h-3.5 w-3.5" /> Pague só se gostar · PIX ou cartão
+          </div>
+
+          {/* Social proof */}
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-primary/80">
+            <div className="flex">
+              {[1,2,3,4,5].map((i) => <Star key={i} className="h-4 w-4 fill-copa-red text-copa-red" />)}
+            </div>
+            <span><b>+1.200 craques</b> já viraram figurinha</span>
+          </div>
+
+          {/* How it works - compact */}
+          <div className="mt-8 grid grid-cols-3 gap-2">
+            {[
+              { n: "1", t: "Foto", i: <Camera className="h-4 w-4" /> },
+              { n: "2", t: "IA cria", i: <Sparkles className="h-4 w-4" /> },
+              { n: "3", t: "Receba", i: <Zap className="h-4 w-4" /> },
+            ].map((s) => (
+              <div key={s.n} className="rounded-2xl bg-white p-3 text-center shadow-md">
+                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  {s.i}
+                </div>
+                <div className="mt-1 text-xs font-bold text-primary">{s.n}. {s.t}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-primary p-5 text-primary-foreground">
+            <div className="font-display text-2xl">Apenas R$ 12,90</div>
+            <p className="mt-1 text-sm text-primary-foreground/80">
+              Figurinha em alta resolução, pronta pra imprimir, postar e mandar pra família toda.
+            </p>
           </div>
         </div>
       </main>
 
-      <section className="bg-primary py-16 text-primary-foreground">
-        <div className="container mx-auto grid gap-8 px-6 md:grid-cols-3">
-          {[
-            { t: "1. Envie a foto", d: "Foto recente do rosto do seu filho." },
-            { t: "2. Personalize", d: "Nome, clube favorito, peso e altura." },
-            { t: "3. Receba por e-mail", d: "Figurinha em alta qualidade pronta para imprimir." },
-          ].map((s) => (
-            <div key={s.t} className="rounded-2xl bg-white/5 p-6 backdrop-blur">
-              <h3 className="font-display text-2xl">{s.t}</h3>
-              <p className="mt-2 text-primary-foreground/80">{s.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <footer className="bg-primary py-6 text-center text-xs text-primary-foreground/70">
+      <footer className="bg-primary px-5 py-5 text-center text-[11px] text-primary-foreground/70">
         © {new Date().getFullYear()} Figurinha Copa · Produto não oficial. Apenas para diversão.
       </footer>
     </div>
   );
 }
 
-function FakeSticker({ rotate, offset, name, club, num, tone }: { rotate: number; offset: string; name: string; club: string; num: string; tone: string }) {
+function FakeSticker({ rotate, pos, name, club, num, tone }: { rotate: number; pos: string; name: string; club: string; num: string; tone: string }) {
   return (
     <div
-      className={`absolute ${offset} w-56 rounded-2xl border-4 border-white bg-white p-3 shadow-2xl`}
+      className={`absolute ${pos} w-40 rounded-2xl border-4 border-white bg-white p-2 shadow-2xl`}
       style={{ transform: `rotate(${rotate}deg)` }}
     >
-      <div className="flex aspect-[3/4] flex-col items-center justify-end overflow-hidden rounded-xl p-3 text-white" style={{ background: `linear-gradient(180deg, ${tone}, #111)` }}>
-        <div className="text-6xl font-display">{num}</div>
-        <div className="mt-1 text-xs font-bold uppercase tracking-widest">{club}</div>
-        <div className="mt-1 text-lg font-display">{name}</div>
+      <div className="flex aspect-[3/4] flex-col items-center justify-end overflow-hidden rounded-xl p-2 text-white" style={{ background: `linear-gradient(180deg, ${tone}, #111)` }}>
+        <div className="font-display text-5xl">{num}</div>
+        <div className="mt-0.5 text-[10px] font-bold uppercase tracking-widest">{club}</div>
+        <div className="font-display text-base">{name}</div>
       </div>
     </div>
   );
