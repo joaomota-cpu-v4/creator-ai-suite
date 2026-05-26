@@ -18,11 +18,11 @@ function Oferta() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
-      <div className="container mx-auto max-w-3xl px-4 py-10">
-        <h1 className="text-center font-display text-4xl text-primary md:text-5xl">
+      <div className="container mx-auto max-w-md px-4 py-6 md:max-w-3xl md:py-10">
+        <h1 className="text-center font-display text-3xl text-primary md:text-5xl">
           Sua figurinha está pronta! 🏆
         </h1>
-        <p className="mt-2 text-center text-primary/80">Confira o preview e desbloqueie a versão em alta qualidade.</p>
+        <p className="mt-2 text-center text-sm text-primary/80">Confira o preview e desbloqueie a versão em alta qualidade.</p>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <div className="rounded-3xl bg-white p-4 shadow-2xl">
