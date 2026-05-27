@@ -50,6 +50,9 @@ export const createSticker = createServerFn({ method: "POST" })
         clube: data.clube,
         foto_base64: data.foto_base64,
         stickerId,
+        data_nascimento: data.data_nascimento,
+        altura_cm: data.altura_cm,
+        peso_kg: data.peso_kg,
       });
       await supabaseAdmin
         .from("stickers")
@@ -57,26 +60,49 @@ export const createSticker = createServerFn({ method: "POST" })
         .eq("id", stickerId);
     } catch (e) {
       console.error("generation failed", e);
-      // keep status draft - UI can retry
     }
 
     return { id: stickerId };
   });
 
-async function generateFigurinha({ nome, clube, foto_base64, stickerId }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string }) {
+async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
-  const time = clube?.toLowerCase().includes("brasil") || !clube ? "Seleção Brasileira do Brasil (camisa amarela com gola verde, escudo da CBF)" : clube;
-  const prompt = `Edit the uploaded photograph to create a premium collectible football trading card.
+  const nascimento = data_nascimento
+    ? new Date(data_nascimento).toLocaleDateString("pt-BR")
+    : "—";
+  const altura = altura_cm ? `${(altura_cm / 100).toFixed(2).replace(".", ",")} m` : "—";
+  const peso = peso_kg ? `${peso_kg} kg` : "—";
+  const nomeUpper = nome.toUpperCase();
 
-CRITICAL FACE RULE: Use the EXACT face from the uploaded photo — same identity, same skin tone, same hair, same facial features, same age. Do NOT redraw, illustrate, cartoonize or stylize the face. The face must remain a real photograph of the same person, only relit to match the scene.
+  const prompt = `Create a premium photorealistic Brazilian World Cup collectible trading card (Panini/FIFA style) using the uploaded photograph of the child.
 
-SCENE: Place the person wearing the official football jersey of ${time}. Realistic fabric texture, professional sports photography, half-body or chest-up framing, confident athlete pose. Background: blurred football stadium with stadium lights, soft bokeh of a cheering crowd, dramatic cinematic lighting on the face.
+ABSOLUTE FACE RULE — most important:
+- Use the EXACT face from the uploaded photo. Same identity, same skin tone, same hair, same eyes, same smile, same age (a real child).
+- Do NOT illustrate, cartoonize, anime-fy, stylize or repaint the face. The face must remain a real photograph of the same person, only relit to match the scene.
+- If you change the face, the card is wrong.
 
-CARD FRAMING: Vertical collectible sports card, 3:4 aspect ratio. Glossy metallic golden border. Subtle holographic green/yellow shimmer in the corners. Confetti and lens flares. At the bottom of the card, in bold white display typography with shadow: "${nome.toUpperCase()}". Small Brazil flag accent at the top.
+WARDROBE:
+- Dress the child in the official yellow Brazil national team jersey (camisa amarela da Seleção Brasileira) with green collar/trim and CBF-style shield. Realistic fabric texture, natural folds, photographic lighting on the shirt.
 
-STYLE: Photorealistic, sharp focus, 4K detail, vibrant saturated colors, premium Panini-style trading card finish. Absolutely NO cartoon, anime, illustration or painting style — keep it photographic.`;
+BACKGROUND / SCENE:
+- Vibrant Brazil-themed background behind the child: green and yellow paint brush strokes, confetti in green/yellow/blue, soft blurred football stadium with stadium lights and crowd bokeh, cinematic dramatic lighting on the face.
+
+CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
+- Thick glossy METALLIC GOLD border framing the whole card, slightly rounded corners, subtle holographic shine in the corners.
+- TOP LEFT: small green & yellow CBF-style shield with 5 gold stars above it and a soccer ball icon inside.
+- TOP RIGHT: small white rounded badge with green text reading "26 / COPA / 2026" stacked on three lines.
+- BOTTOM CENTER: dark blue ribbon banner with thin gold outline containing the player name "${nomeUpper}" in bold white italic display sports typography with subtle shadow.
+- Directly under the banner: small yellow text "★ ATACANTE ★".
+- BOTTOM STRIP: a yellow/gold gradient info bar with three small icon+label groups in dark navy text, evenly spaced:
+  1) calendar icon + "${nascimento}" / "NASCIMENTO"
+  2) height-ruler icon + "${altura}" / "ALTURA"
+  3) weight icon + "${peso}" / "PESO"
+  Text must be crisp, legible and spelled exactly as written.
+
+STYLE:
+- Photorealistic, sharp focus, 4K detail, vibrant saturated colors, glossy premium trading-card finish, lens flares and confetti sparkles. NO cartoon, NO illustration, NO painting — fully photographic for the person, with graphic card overlays on top.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
