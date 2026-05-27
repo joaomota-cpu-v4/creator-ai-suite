@@ -29,10 +29,14 @@ function Oferta() {
             <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-secondary/30">
               {data?.preview_url ? (
                 <>
-                  <img src={data.preview_url} alt="figurinha" className="h-full w-full object-cover" />
-                  <div className="pointer-events-none absolute inset-0 backdrop-blur-md" style={{ WebkitMaskImage: "linear-gradient(transparent 40%, black 70%)", maskImage: "linear-gradient(transparent 40%, black 70%)" }} />
-                  <div className="absolute inset-0 flex items-end justify-center p-6">
-                    <span className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">🔒 Desbloqueie a versão sem censura</span>
+                  <img src={data.preview_url} alt="figurinha" className="h-full w-full object-cover object-center" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/50 to-black/85" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-white">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm ring-2 ring-white/40">
+                      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></svg>
+                    </div>
+                    <div className="font-display text-xl leading-tight">Libere sua figurinha<br/>após o pagamento</div>
+                    <span className="rounded-full bg-copa-green px-3 py-1 text-xs font-bold uppercase tracking-wide">Pronta em alta resolução</span>
                   </div>
                 </>
               ) : (

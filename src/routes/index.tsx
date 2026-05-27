@@ -13,9 +13,7 @@ function Landing() {
           <Trophy className="h-6 w-6 text-primary" />
           <span className="font-display text-xl text-primary">FIGURINHA COPA</span>
         </div>
-        <Link to="/login" className="text-xs font-medium text-primary/70 hover:text-primary">
-          Admin
-        </Link>
+        <span className="text-[10px] font-medium text-primary/40">Brasil 2026</span>
       </header>
 
       {/* Hero quiz-style */}
