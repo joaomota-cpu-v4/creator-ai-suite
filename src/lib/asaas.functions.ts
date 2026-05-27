@@ -114,12 +114,23 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     let pixQr: string | null = null;
     let pixCopy: string | null = null;
     if (data.metodo === "PIX") {
-      try {
-        const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
-        pixQr = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : null;
-        pixCopy = qr.payload || null;
-      } catch (e) {
-        console.error("PIX QR fetch failed", e);
+      // Asaas às vezes leva 1-2s pra gerar o QR — fazemos algumas tentativas
+      let lastErr: any = null;
+      for (let i = 0; i < 4; i++) {
+        try {
+          const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
+          pixQr = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : null;
+          pixCopy = qr.payload || null;
+          if (pixQr || pixCopy) break;
+        } catch (e) {
+          lastErr = e;
+          console.warn(`PIX QR tentativa ${i + 1} falhou`, e);
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      if (!pixQr && !pixCopy) {
+        console.error("PIX QR não gerado após retries", lastErr);
+        throw new Error("Não foi possível gerar o PIX. Verifique se sua conta Asaas tem chave PIX cadastrada ou tente novamente em instantes.");
       }
     }
 

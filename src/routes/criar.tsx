@@ -37,12 +37,37 @@ function Criar() {
   };
   const back = () => setStep((s) => Math.max(1, s - 1));
 
-  const onPhoto = (file: File) => {
-    if (file.size > 8 * 1024 * 1024) return toast.error("Máximo 8MB");
-    const r = new FileReader();
-    r.onload = () => update("foto_base64", r.result as string);
-    r.readAsDataURL(file);
+  const onPhoto = async (file: File) => {
+    if (file.size > 15 * 1024 * 1024) return toast.error("Máximo 15MB");
+    try {
+      const compressed = await compressImage(file, 1024, 0.82);
+      update("foto_base64", compressed);
+    } catch {
+      const r = new FileReader();
+      r.onload = () => update("foto_base64", r.result as string);
+      r.readAsDataURL(file);
+    }
   };
+
+  const compressImage = (file: File, maxSide: number, quality: number) =>
+    new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("canvas"));
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("img")); };
+      img.src = url;
+    });
 
   const submit = async () => {
     setLoading(true);

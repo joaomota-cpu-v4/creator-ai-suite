@@ -67,16 +67,16 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId }: { nome
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
-  const time = clube?.toLowerCase().includes("brasil") || !clube ? "Seleção Brasileira (amarela com detalhes verdes)" : clube;
-  const prompt = `FOTOGRAFIA REALISTA estilo figurinha Panini Copa do Mundo 2026.
+  const time = clube?.toLowerCase().includes("brasil") || !clube ? "Seleção Brasileira do Brasil (camisa amarela com gola verde, escudo da CBF)" : clube;
+  const prompt = `Edit the uploaded photograph to create a premium collectible football trading card.
 
-INSTRUÇÃO CRÍTICA: Preserve EXATAMENTE o rosto, traços, cor de pele, cabelo e expressão da pessoa da foto enviada. NÃO desenhe, NÃO cartoonize. Mantenha o rosto fotográfico real, apenas integrado no novo cenário.
+CRITICAL FACE RULE: Use the EXACT face from the uploaded photo — same identity, same skin tone, same hair, same facial features, same age. Do NOT redraw, illustrate, cartoonize or stylize the face. The face must remain a real photograph of the same person, only relit to match the scene.
 
-CENA: A pessoa veste o uniforme oficial de futebol do ${time}, fotografia de corpo inteiro ou meio corpo, pose de jogador profissional (braços cruzados ou bola sob o braço), em um estádio de futebol com torcida desfocada ao fundo, iluminação dramática de holofotes.
+SCENE: Place the person wearing the official football jersey of ${time}. Realistic fabric texture, professional sports photography, half-body or chest-up framing, confident athlete pose. Background: blurred football stadium with stadium lights, soft bokeh of a cheering crowd, dramatic cinematic lighting on the face.
 
-ENQUADRAMENTO: Figurinha colecionável retangular vertical (proporção 3:4). Borda dourada metálica brilhante. Fundo holográfico sutil verde e amarelo nas laterais. No rodapé da figurinha, em letras grandes brancas com sombra: "${nome.toUpperCase()}". No topo, pequena bandeira do Brasil 🇧🇷.
+CARD FRAMING: Vertical collectible sports card, 3:4 aspect ratio. Glossy metallic golden border. Subtle holographic green/yellow shimmer in the corners. Confetti and lens flares. At the bottom of the card, in bold white display typography with shadow: "${nome.toUpperCase()}". Small Brazil flag accent at the top.
 
-ESTILO: Fotorrealista, qualidade 4K, cores vibrantes, iluminação cinematográfica. NUNCA estilo desenho, anime ou cartoon.`;
+STYLE: Photorealistic, sharp focus, 4K detail, vibrant saturated colors, premium Panini-style trading card finish. Absolutely NO cartoon, anime, illustration or painting style — keep it photographic.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
