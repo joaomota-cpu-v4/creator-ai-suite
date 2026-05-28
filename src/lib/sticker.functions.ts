@@ -66,8 +66,8 @@ export const createSticker = createServerFn({ method: "POST" })
   });
 
 async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY missing from environment variables");
 
   const nascimento = data_nascimento
     ? new Date(data_nascimento).toLocaleDateString("pt-BR")
@@ -104,14 +104,14 @@ CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
 STYLE:
 - Photorealistic, sharp focus, 4K detail, vibrant saturated colors, glossy premium trading-card finish, lens flares and confetti sparkles. NO cartoon, NO illustration, NO painting — fully photographic for the person, with graphic card overlays on top.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-pro-image-preview",
+      model: "gemini-3.1-flash-image-preview",
       messages: [
         {
           role: "user",
