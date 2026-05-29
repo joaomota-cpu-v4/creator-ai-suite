@@ -63,9 +63,13 @@ function Sucesso() {
             <p className="text-xs text-muted-foreground">A liberação é automática em segundos.</p>
             {order.data.pix_qr_code ? (
               <img src={order.data.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-52" />
+            ) : order.data.invoice_url ? (
+              <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs text-muted-foreground">
+                QR Code indisponível. Use o link abaixo para pagar.
+              </div>
             ) : (
               <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs text-muted-foreground">
-                QR Code indisponível. Use o código copia e cola abaixo.
+                Gerando QR Code...
               </div>
             )}
             {order.data.pix_copy_paste && (
@@ -85,10 +89,18 @@ function Sucesso() {
                 </Button>
               </>
             )}
+            {order.data.invoice_url && (
+              <Button asChild className="mt-3 w-full bg-copa-green text-white hover:bg-copa-green/90">
+                <a href={order.data.invoice_url} target="_blank" rel="noreferrer">
+                  Abrir página de pagamento Asaas
+                </a>
+              </Button>
+            )}
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Aguardando pagamento...
             </div>
           </div>
+
         ) : (
           <div className="rounded-3xl bg-white p-8 text-center shadow-2xl">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
