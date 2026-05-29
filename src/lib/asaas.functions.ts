@@ -114,8 +114,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     let pixQr: string | null = null;
     let pixCopy: string | null = null;
     if (data.metodo === "PIX") {
-      // Asaas às vezes leva 1-2s pra gerar o QR — fazemos algumas tentativas
-      let lastErr: any = null;
+      // Asaas às vezes leva 1-2s pra gerar o QR — tentamos algumas vezes, mas não bloqueamos
       for (let i = 0; i < 4; i++) {
         try {
           const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
@@ -123,16 +122,16 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
           pixCopy = qr.payload || null;
           if (pixQr || pixCopy) break;
         } catch (e) {
-          lastErr = e;
           console.warn(`PIX QR tentativa ${i + 1} falhou`, e);
         }
         await new Promise((r) => setTimeout(r, 800));
       }
-      if (!pixQr && !pixCopy) {
-        console.error("PIX QR não gerado após retries", lastErr);
-        throw new Error("Não foi possível gerar o PIX. Verifique se sua conta Asaas tem chave PIX cadastrada ou tente novamente em instantes.");
+      // Se mesmo assim não veio, seguimos com invoiceUrl (link Asaas) como fallback
+      if (!pixQr && !pixCopy && !payment.invoiceUrl) {
+        throw new Error("Não foi possível gerar o PIX agora. Verifique se sua conta Asaas tem chave PIX cadastrada e tente novamente.");
       }
     }
+
 
     const status = payment.status === "CONFIRMED" || payment.status === "RECEIVED" ? "CONFIRMED" : "PENDING";
 
