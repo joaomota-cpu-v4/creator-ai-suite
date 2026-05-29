@@ -58,6 +58,9 @@ function Sucesso() {
             )}
           </div>
         ) : order.data?.metodo === "PIX" ? (
+          <div className="rounded-3xl bg-white p-5 text-center shadow-2xl">
+            <h1 className="font-display text-2xl text-primary">Pague o PIX para liberar</h1>
+            <p className="text-xs text-muted-foreground">A liberação é automática em segundos.</p>
             {order.data.pix_qr_code ? (
               <img src={order.data.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-52" />
             ) : order.data.invoice_url ? (
@@ -93,16 +96,11 @@ function Sucesso() {
                 </a>
               </Button>
             )}
-
-                >
-                  <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
-                </Button>
-              </>
-            )}
             <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Aguardando pagamento...
             </div>
           </div>
+
         ) : (
           <div className="rounded-3xl bg-white p-8 text-center shadow-2xl">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
