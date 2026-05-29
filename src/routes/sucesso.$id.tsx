@@ -58,14 +58,15 @@ function Sucesso() {
             )}
           </div>
         ) : order.data?.metodo === "PIX" ? (
-          <div className="rounded-3xl bg-white p-5 text-center shadow-2xl">
-            <h1 className="font-display text-2xl text-primary">Pague o PIX para liberar</h1>
-            <p className="text-xs text-muted-foreground">A liberação é automática em segundos.</p>
             {order.data.pix_qr_code ? (
               <img src={order.data.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-52" />
+            ) : order.data.invoice_url ? (
+              <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs text-muted-foreground">
+                QR Code indisponível. Use o link abaixo para pagar.
+              </div>
             ) : (
               <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs text-muted-foreground">
-                QR Code indisponível. Use o código copia e cola abaixo.
+                Gerando QR Code...
               </div>
             )}
             {order.data.pix_copy_paste && (
@@ -80,6 +81,19 @@ function Sucesso() {
                     navigator.clipboard.writeText(order.data!.pix_copy_paste!);
                     toast.success("Código PIX copiado");
                   }}
+                >
+                  <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
+                </Button>
+              </>
+            )}
+            {order.data.invoice_url && (
+              <Button asChild className="mt-3 w-full bg-copa-green text-white hover:bg-copa-green/90">
+                <a href={order.data.invoice_url} target="_blank" rel="noreferrer">
+                  Abrir página de pagamento Asaas
+                </a>
+              </Button>
+            )}
+
                 >
                   <Copy className="mr-2 h-4 w-4" /> Copiar código PIX
                 </Button>
