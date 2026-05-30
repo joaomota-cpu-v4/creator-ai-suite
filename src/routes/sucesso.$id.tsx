@@ -37,6 +37,16 @@ function Sucesso() {
 
   const confirmed = order.data?.status === "CONFIRMED";
 
+  const purchaseFired = useRef(false);
+  useEffect(() => {
+    if (confirmed && !purchaseFired.current) {
+      purchaseFired.current = true;
+      const valor = order.data?.valor_centavos ? order.data.valor_centavos / 100 : 12.9;
+      fbqTrack("Purchase", { value: valor, currency: "BRL", content_name: "Figurinha Copa" });
+    }
+  }, [confirmed, order.data?.valor_centavos]);
+
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
       <div className="container mx-auto max-w-md px-4 py-6">
