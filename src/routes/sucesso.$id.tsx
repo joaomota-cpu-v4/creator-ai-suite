@@ -1,9 +1,10 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getOrderPublic, getStickerPublic } from "@/lib/sticker.functions";
 import { checkOrderStatus } from "@/lib/asaas.functions";
+import { fbqTrack } from "@/lib/pixel";
 import { Check, Copy, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -35,6 +36,16 @@ function Sucesso() {
   }, [order.data?.status, id, checkStatus, order]);
 
   const confirmed = order.data?.status === "CONFIRMED";
+
+  const purchaseFired = useRef(false);
+  useEffect(() => {
+    if (confirmed && !purchaseFired.current) {
+      purchaseFired.current = true;
+      const valor = order.data?.valor_centavos ? order.data.valor_centavos / 100 : 12.9;
+      fbqTrack("Purchase", { value: valor, currency: "BRL", content_name: "Figurinha Copa" });
+    }
+  }, [confirmed, order.data?.valor_centavos]);
+
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
