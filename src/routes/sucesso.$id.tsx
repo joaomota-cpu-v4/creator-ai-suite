@@ -1,9 +1,10 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getOrderPublic, getStickerPublic } from "@/lib/sticker.functions";
 import { checkOrderStatus } from "@/lib/asaas.functions";
+import { fbqTrack } from "@/lib/pixel";
 import { Check, Copy, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
