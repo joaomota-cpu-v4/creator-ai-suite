@@ -66,8 +66,8 @@ export const createSticker = createServerFn({ method: "POST" })
   });
 
 async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY missing from environment variables");
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("LOVABLE_API_KEY missing from environment variables");
 
   const nascimento = data_nascimento
     ? new Date(data_nascimento).toLocaleDateString("pt-BR")
