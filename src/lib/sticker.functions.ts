@@ -104,14 +104,14 @@ CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
 STYLE:
 - Photorealistic, sharp focus, 4K detail, vibrant saturated colors, glossy premium trading-card finish, lens flares and confetti sparkles. NO cartoon, NO illustration, NO painting — fully photographic for the person, with graphic card overlays on top.`;
 
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gemini-3.1-flash-image-preview",
+      model: "google/gemini-3.1-flash-image-preview",
       messages: [
         {
           role: "user",
