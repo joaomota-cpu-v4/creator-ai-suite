@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { getStickerPublic } from "@/lib/sticker.functions";
+import { fbqTrack } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 
