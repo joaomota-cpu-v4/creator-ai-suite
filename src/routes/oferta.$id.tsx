@@ -18,6 +18,11 @@ function Oferta() {
     refetchInterval: (q) => (q.state.data?.status === "generated" ? false : 3000),
   });
 
+  useEffect(() => {
+    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: 12.9, currency: "BRL" });
+  }, []);
+
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
       <div className="container mx-auto max-w-md px-4 py-6 md:max-w-3xl md:py-10">
