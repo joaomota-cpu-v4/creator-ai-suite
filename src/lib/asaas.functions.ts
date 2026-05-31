@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const ASAAS_BASE = "https://api-sandbox.asaas.com/v3";
+const ASAAS_BASE = "https://api.asaas.com/v3";
 
 async function asaas(path: string, init?: RequestInit) {
   const key = process.env.ASAAS_API_KEY;
