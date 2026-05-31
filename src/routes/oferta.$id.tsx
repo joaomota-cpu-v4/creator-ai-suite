@@ -19,7 +19,7 @@ function Oferta() {
   });
 
   useEffect(() => {
-    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: 12.9, currency: "BRL" });
+    fbqTrack("ViewContent", { content_name: "Figurinha Copa", value: 12.9, currency: "BRL" });
   }, []);
 
 

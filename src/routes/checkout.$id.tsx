@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createAsaasPayment } from "@/lib/asaas.functions";
+import { fbqTrack } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +35,27 @@ function Checkout() {
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
     setLoading(true);
     try {
+      const eventId = crypto.randomUUID();
+      const eventSourceUrl = window.location.href;
+
+      // Disparar InitiateCheckout no client
+      await fbqTrack(
+        "InitiateCheckout",
+        {
+          content_name: "Figurinha Copa",
+          content_type: "product",
+          content_ids: [id],
+          value: 12.90,
+          currency: "BRL",
+        },
+        eventId,
+        {
+          email: f.email,
+          phone: f.telefone,
+          nome: f.nome,
+        }
+      );
+
       await pay({
         data: {
           sticker_id: id,
@@ -49,6 +71,8 @@ function Checkout() {
             expiryYear: f.expiryYear,
             ccv: f.ccv,
           } : undefined,
+          eventId,
+          eventSourceUrl,
         },
       });
       navigate({ to: "/sucesso/$id", params: { id } });

@@ -10,6 +10,8 @@ const CreateInput = z.object({
   peso_kg: z.coerce.number().min(1).max(300).optional().nullable(),
   altura_cm: z.coerce.number().min(30).max(250).optional().nullable(),
   foto_base64: z.string().min(100), // data URL
+  eventId: z.string().optional().nullable(),
+  eventSourceUrl: z.string().optional().nullable(),
 });
 
 export const createSticker = createServerFn({ method: "POST" })
@@ -42,6 +44,33 @@ export const createSticker = createServerFn({ method: "POST" })
       status: "draft",
     });
     if (insErr) throw new Error(insErr.message);
+
+    // Enviar evento Lead via CAPI
+    if (data.eventId) {
+      try {
+        const { sendCAPIEvent } = await import("./meta-capi.server");
+        const { getRequest } = await import("@tanstack/react-start/server");
+        const req = getRequest();
+
+        await sendCAPIEvent({
+          eventName: "Lead",
+          eventId: data.eventId,
+          eventSourceUrl: data.eventSourceUrl || undefined,
+          request: req,
+          userData: {
+            email: data.email,
+            nome: data.nome,
+          },
+          customData: {
+            content_name: "Figurinha gerada",
+            value: 12.90,
+            currency: "BRL",
+          },
+        });
+      } catch (err) {
+        console.error("CAPI Lead failed:", err);
+      }
+    }
 
     // Generate sticker via Lovable AI (async-ish: do it now to keep flow simple)
     try {
@@ -162,7 +191,7 @@ export const getStickerPublic = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { data: row, error } = await supabaseAdmin
       .from("stickers")
-      .select("id, nome, clube, status, figurinha_url, preview_url")
+      .select("id, nome, email, clube, status, figurinha_url, preview_url")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);

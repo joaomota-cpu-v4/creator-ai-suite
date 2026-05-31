@@ -73,6 +73,9 @@ function Criar() {
   const submit = async () => {
     setLoading(true);
     try {
+      const eventId = crypto.randomUUID();
+      const eventSourceUrl = window.location.href;
+
       const res = await create({
         data: {
           nome: form.nome,
@@ -82,9 +85,18 @@ function Criar() {
           peso_kg: form.peso_kg ? Number(form.peso_kg) : null,
           altura_cm: form.altura_cm ? Number(form.altura_cm) : null,
           foto_base64: form.foto_base64,
+          eventId,
+          eventSourceUrl,
         },
       });
-      fbqTrack("Lead", { content_name: "Figurinha gerada", value: 12.9, currency: "BRL" });
+      
+      await fbqTrack(
+        "Lead",
+        { content_name: "Figurinha gerada", value: 12.9, currency: "BRL" },
+        eventId,
+        { email: form.email, nome: form.nome }
+      );
+      
       navigate({ to: "/oferta/$id", params: { id: res.id } });
     } catch (e: any) {
       toast.error(e.message || "Erro ao gerar figurinha");
