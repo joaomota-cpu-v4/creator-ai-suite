@@ -40,29 +40,11 @@ function Sucesso() {
   const purchaseFired = useRef(false);
   useEffect(() => {
     if (confirmed && !purchaseFired.current) {
-      const orderId = order.data?.id;
-      if (!orderId) return; // Wait until order ID is loaded
-
       purchaseFired.current = true;
       const valor = order.data?.valor_centavos ? order.data.valor_centavos / 100 : 12.9;
-      
-      fbqTrack(
-        "Purchase",
-        {
-          value: valor,
-          currency: "BRL",
-          content_name: "Figurinha Copa",
-          content_type: "product",
-          content_ids: [id],
-        },
-        orderId,
-        {
-          email: sticker.data?.email,
-          nome: sticker.data?.nome,
-        }
-      );
+      fbqTrack("Purchase", { value: valor, currency: "BRL", content_name: "Figurinha Copa" });
     }
-  }, [confirmed, order.data, id, sticker.data]);
+  }, [confirmed, order.data?.valor_centavos]);
 
 
   return (

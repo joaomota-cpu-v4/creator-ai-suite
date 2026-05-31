@@ -29,42 +29,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           .from("orders")
           .update({ status: newStatus })
           .eq("asaas_payment_id", payment.id)
-          .select("id, sticker_id, valor_centavos, telefone")
+          .select("sticker_id")
           .maybeSingle();
 
         if (paid && order?.sticker_id) {
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
-
-          // Buscar dados da figurinha (email e nome) para Advanced Matching na CAPI
-          const { data: sticker } = await supabaseAdmin
-            .from("stickers")
-            .select("email, nome")
-            .eq("id", order.sticker_id)
-            .maybeSingle();
-
-          // Enviar evento Purchase via API de Conversões (CAPI) do Meta
-          try {
-            const { sendCAPIEvent } = await import("@/lib/meta-capi.server");
-            await sendCAPIEvent({
-              eventName: "Purchase",
-              eventId: order.id, // ID único estável do pedido para deduplicação
-              request: request,
-              userData: {
-                email: sticker?.email,
-                phone: order.telefone,
-                nome: sticker?.nome,
-              },
-              customData: {
-                content_name: "Figurinha Copa",
-                content_type: "product",
-                content_ids: [order.sticker_id],
-                value: order.valor_centavos ? order.valor_centavos / 100 : 12.90,
-                currency: "BRL",
-              },
-            });
-          } catch (capiErr) {
-            console.error("Erro ao enviar Purchase CAPI via Webhook:", capiErr);
-          }
         }
 
         return new Response("ok", { status: 200 });

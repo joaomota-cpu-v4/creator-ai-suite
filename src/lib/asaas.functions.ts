@@ -60,8 +60,6 @@ const CheckoutInput = z.object({
     expiryYear: z.string(),
     ccv: z.string(),
   }).optional(),
-  eventId: z.string().optional().nullable(),
-  eventSourceUrl: z.string().optional().nullable(),
 });
 
 export const createAsaasPayment = createServerFn({ method: "POST" })
@@ -112,36 +110,6 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     }
 
     const payment = await asaas("/payments", { method: "POST", body: JSON.stringify(body) });
-
-    // Enviar evento InitiateCheckout via CAPI
-    if (data.eventId) {
-      try {
-        const { sendCAPIEvent } = await import("./meta-capi.server");
-        const { getRequest } = await import("@tanstack/react-start/server");
-        const req = getRequest();
-
-        await sendCAPIEvent({
-          eventName: "InitiateCheckout",
-          eventId: data.eventId,
-          eventSourceUrl: data.eventSourceUrl || undefined,
-          request: req,
-          userData: {
-            email: data.email,
-            phone: phoneClean,
-            nome: data.nome,
-          },
-          customData: {
-            content_name: "Figurinha Copa",
-            content_type: "product",
-            content_ids: [data.sticker_id],
-            value: 12.90,
-            currency: "BRL",
-          },
-        });
-      } catch (err) {
-        console.error("CAPI InitiateCheckout failed:", err);
-      }
-    }
 
     let pixQr: string | null = null;
     let pixCopy: string | null = null;
