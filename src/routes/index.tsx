@@ -81,7 +81,7 @@ function Landing() {
           </div>
 
           <div className="mt-6 rounded-2xl bg-primary p-5 text-primary-foreground">
-            <div className="font-display text-2xl">Apenas R$ 12,90</div>
+            <div className="font-display text-2xl">Apenas {price.formatted}</div>
             <p className="mt-1 text-sm text-primary-foreground/80">
               Figurinha em alta resolução, pronta pra imprimir, postar e mandar pra família toda.
             </p>
