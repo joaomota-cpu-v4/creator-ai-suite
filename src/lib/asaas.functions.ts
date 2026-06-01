@@ -143,7 +143,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     const { data: order, error } = await supabaseAdmin.from("orders").insert({
       sticker_id: data.sticker_id,
       asaas_payment_id: payment.id,
-      valor_centavos: 1290,
+      valor_centavos: priceCents,
       metodo: data.metodo,
       status,
       pix_qr_code: pixQr,
