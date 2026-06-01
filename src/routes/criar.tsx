@@ -86,7 +86,7 @@ function Criar() {
           foto_base64: form.foto_base64,
         },
       });
-      fbqTrack("Lead", { content_name: "Figurinha gerada", value: 12.9, currency: "BRL" });
+      fbqTrack("Lead", { content_name: "Figurinha gerada", value: price.reais, currency: "BRL" });
       navigate({ to: "/oferta/$id", params: { id: res.id } });
     } catch (e: any) {
       toast.error(e.message || "Erro ao gerar figurinha");
