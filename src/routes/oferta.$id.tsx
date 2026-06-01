@@ -63,10 +63,10 @@ function Oferta() {
           <div className="space-y-4">
             <div className="rounded-3xl bg-white p-6 shadow-2xl">
               <div className="flex items-baseline gap-2">
-                <span className="text-sm text-muted-foreground line-through">R$ 29,90</span>
+                <span className="text-sm text-muted-foreground line-through">{formatBRL(Math.round(price.cents * 2.32))}</span>
                 <span className="rounded-full bg-copa-red px-2 py-0.5 text-xs font-bold text-white">-57%</span>
               </div>
-              <div className="font-display text-5xl text-primary">R$ 12,90</div>
+              <div className="font-display text-5xl text-primary">{price.formatted}</div>
               <p className="text-sm text-muted-foreground">à vista no PIX ou cartão</p>
 
               <ul className="mt-4 space-y-2 text-sm">
