@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createSticker } from "@/lib/sticker.functions";
 import { fbqTrack } from "@/lib/pixel";
+import { usePrice } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/criar")({ component: Criar });
 function Criar() {
   const navigate = useNavigate();
   const create = useServerFn(createSticker);
+  const price = usePrice();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
