@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { deliverSticker } from "./delivery.server";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
 
@@ -151,11 +152,15 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       invoice_url: payment.invoiceUrl || null,
       cpf: cpfClean,
       telefone: phoneClean,
+      nome: data.nome,
+      email: data.email,
     }).select().single();
     if (error) throw new Error(error.message);
 
     if (status === "CONFIRMED") {
       await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", data.sticker_id);
+      console.log("[pagamento] confirmado imediatamente", order.id);
+      deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
     }
 
     return { orderId: order.id, status, pixQr, pixCopy, invoiceUrl: payment.invoiceUrl || null };
@@ -186,6 +191,8 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           .maybeSingle();
         if (updated) {
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
+          console.log("[pagamento] confirmado via polling", order.id);
+          deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
         }
         return { status: "CONFIRMED" };
       }
