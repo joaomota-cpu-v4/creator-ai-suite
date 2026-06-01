@@ -65,7 +65,7 @@ function Checkout() {
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
       <div className="container mx-auto max-w-md px-4 py-6">
         <h1 className="font-display text-3xl text-primary">Finalizar pedido</h1>
-        <p className="mt-1 text-sm text-primary/80">Total: <b>R$ 12,90</b></p>
+        <p className="mt-1 text-sm text-primary/80">Total: <b>{price.formatted}</b></p>
 
         <div className="mt-6 space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
           <h2 className="font-semibold">Seus dados</h2>
