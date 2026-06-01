@@ -191,6 +191,8 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           .maybeSingle();
         if (updated) {
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
+          console.log("[pagamento] confirmado via polling", order.id);
+          deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
         }
         return { status: "CONFIRMED" };
       }
