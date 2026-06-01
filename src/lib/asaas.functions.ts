@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { deliverSticker } from "./delivery.server";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
 
