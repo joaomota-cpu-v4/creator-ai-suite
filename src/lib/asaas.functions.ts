@@ -152,11 +152,15 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       invoice_url: payment.invoiceUrl || null,
       cpf: cpfClean,
       telefone: phoneClean,
+      nome: data.nome,
+      email: data.email,
     }).select().single();
     if (error) throw new Error(error.message);
 
     if (status === "CONFIRMED") {
       await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", data.sticker_id);
+      console.log("[pagamento] confirmado imediatamente", order.id);
+      deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
     }
 
     return { orderId: order.id, status, pixQr, pixCopy, invoiceUrl: payment.invoiceUrl || null };
