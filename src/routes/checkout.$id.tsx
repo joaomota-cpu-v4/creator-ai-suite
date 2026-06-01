@@ -16,6 +16,7 @@ function Checkout() {
   const { id } = useParams({ from: "/checkout/$id" });
   const navigate = useNavigate();
   const pay = useServerFn(createAsaasPayment);
+  const price = usePrice();
   const [loading, setLoading] = useState(false);
   const [metodo, setMetodo] = useState<"PIX" | "CREDIT_CARD">("PIX");
   const [f, setF] = useState({
