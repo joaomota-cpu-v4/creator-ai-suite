@@ -1,10 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { adminListOrders, adminStats, claimAdmin, isAdmin } from "@/lib/admin.functions";
+import { getPrice, setPrice } from "@/lib/settings.functions";
+import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
