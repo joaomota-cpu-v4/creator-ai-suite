@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { deliverSticker } from "@/lib/delivery.server";
 
 export const Route = createFileRoute("/api/public/asaas-webhook")({
   server: {
