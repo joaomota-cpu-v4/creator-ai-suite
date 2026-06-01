@@ -37,9 +37,12 @@ export type Database = {
           asaas_payment_id: string | null
           cpf: string | null
           created_at: string
+          delivered_at: string | null
+          email: string | null
           id: string
           invoice_url: string | null
           metodo: Database["public"]["Enums"]["payment_method"]
+          nome: string | null
           pix_copy_paste: string | null
           pix_qr_code: string | null
           status: Database["public"]["Enums"]["order_status"]
@@ -52,9 +55,12 @@ export type Database = {
           asaas_payment_id?: string | null
           cpf?: string | null
           created_at?: string
+          delivered_at?: string | null
+          email?: string | null
           id?: string
           invoice_url?: string | null
           metodo: Database["public"]["Enums"]["payment_method"]
+          nome?: string | null
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
           status?: Database["public"]["Enums"]["order_status"]
@@ -67,9 +73,12 @@ export type Database = {
           asaas_payment_id?: string | null
           cpf?: string | null
           created_at?: string
+          delivered_at?: string | null
+          email?: string | null
           id?: string
           invoice_url?: string | null
           metodo?: Database["public"]["Enums"]["payment_method"]
+          nome?: string | null
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
           status?: Database["public"]["Enums"]["order_status"]
