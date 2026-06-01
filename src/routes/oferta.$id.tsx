@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getStickerPublic } from "@/lib/sticker.functions";
 import { fbqTrack } from "@/lib/pixel";
+import { usePrice, formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/oferta/$id")({ component: Oferta });
 function Oferta() {
   const { id } = useParams({ from: "/oferta/$id" });
   const fetchSticker = useServerFn(getStickerPublic);
+  const price = usePrice();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["sticker", id],
     queryFn: () => fetchSticker({ data: { id } }),
@@ -19,8 +21,9 @@ function Oferta() {
   });
 
   useEffect(() => {
-    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: 12.9, currency: "BRL" });
-  }, []);
+    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: price.reais, currency: "BRL" });
+  }, [price.reais]);
+
 
 
   return (
