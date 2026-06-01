@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createSticker } from "@/lib/sticker.functions";
 import { fbqTrack } from "@/lib/pixel";
+import { usePrice } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/criar")({ component: Criar });
 function Criar() {
   const navigate = useNavigate();
   const create = useServerFn(createSticker);
+  const price = usePrice();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -84,7 +86,7 @@ function Criar() {
           foto_base64: form.foto_base64,
         },
       });
-      fbqTrack("Lead", { content_name: "Figurinha gerada", value: 12.9, currency: "BRL" });
+      fbqTrack("Lead", { content_name: "Figurinha gerada", value: price.reais, currency: "BRL" });
       navigate({ to: "/oferta/$id", params: { id: res.id } });
     } catch (e: any) {
       toast.error(e.message || "Erro ao gerar figurinha");

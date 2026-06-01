@@ -1,10 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { adminListOrders, adminStats, claimAdmin, isAdmin } from "@/lib/admin.functions";
+import { getPrice, setPrice } from "@/lib/settings.functions";
+import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -53,6 +58,10 @@ function Admin() {
           <Stat label="Receita" value={s.data ? `R$ ${(s.data.revenueCents / 100).toFixed(2)}` : "-"} />
         </div>
 
+        <PriceEditor />
+
+
+
         <Card className="mt-8 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted text-left">
@@ -88,6 +97,51 @@ function Admin() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function PriceEditor() {
+  const fetchPrice = useServerFn(getPrice);
+  const updatePrice = useServerFn(setPrice);
+  const q = useQuery({ queryKey: ["app-price"], queryFn: () => fetchPrice() });
+  const [val, setVal] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (q.data && val === "") setVal((q.data.price_centavos / 100).toFixed(2).replace(".", ","));
+  }, [q.data, val]);
+
+  const save = async () => {
+    const cents = Math.round(parseFloat(val.replace(",", ".")) * 100);
+    if (!Number.isFinite(cents) || cents < 100) return toast.error("Valor inválido (mínimo R$ 1,00)");
+    setSaving(true);
+    try {
+      await updatePrice({ data: { price_centavos: cents } });
+      toast.success("Preço atualizado!");
+      q.refetch();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="mt-6 p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-xl text-primary">Preço da figurinha</h2>
+          <p className="text-xs text-muted-foreground">Vale para landing, oferta, checkout e cobrança Asaas. Atual: <b>{q.data ? formatBRL(q.data.price_centavos) : "—"}</b></p>
+        </div>
+        <div className="flex items-end gap-2">
+          <div>
+            <Label>Novo preço (R$)</Label>
+            <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="12,90" className="w-32" />
+          </div>
+          <Button onClick={save} disabled={saving} className="bg-primary">{saving ? "Salvando..." : "Salvar"}</Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 

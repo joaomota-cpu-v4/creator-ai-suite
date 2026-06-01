@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getStickerPublic } from "@/lib/sticker.functions";
 import { fbqTrack } from "@/lib/pixel";
+import { usePrice, formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/oferta/$id")({ component: Oferta });
 function Oferta() {
   const { id } = useParams({ from: "/oferta/$id" });
   const fetchSticker = useServerFn(getStickerPublic);
+  const price = usePrice();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["sticker", id],
     queryFn: () => fetchSticker({ data: { id } }),
@@ -19,8 +21,9 @@ function Oferta() {
   });
 
   useEffect(() => {
-    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: 12.9, currency: "BRL" });
-  }, []);
+    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: price.reais, currency: "BRL" });
+  }, [price.reais]);
+
 
 
   return (
@@ -60,10 +63,10 @@ function Oferta() {
           <div className="space-y-4">
             <div className="rounded-3xl bg-white p-6 shadow-2xl">
               <div className="flex items-baseline gap-2">
-                <span className="text-sm text-muted-foreground line-through">R$ 29,90</span>
+                <span className="text-sm text-muted-foreground line-through">{formatBRL(Math.round(price.cents * 2.32))}</span>
                 <span className="rounded-full bg-copa-red px-2 py-0.5 text-xs font-bold text-white">-57%</span>
               </div>
-              <div className="font-display text-5xl text-primary">R$ 12,90</div>
+              <div className="font-display text-5xl text-primary">{price.formatted}</div>
               <p className="text-sm text-muted-foreground">à vista no PIX ou cartão</p>
 
               <ul className="mt-4 space-y-2 text-sm">

@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: boolean
+          price_centavos: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          price_centavos?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          price_centavos?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           asaas_payment_id: string | null
