@@ -83,10 +83,15 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     due.setDate(due.getDate() + 1);
     const dueDate = due.toISOString().slice(0, 10);
 
+    const { data: settings } = await supabaseAdmin
+      .from("app_settings").select("price_centavos").eq("id", true).maybeSingle();
+    const priceCents = settings?.price_centavos ?? 1290;
+    const priceReais = Math.round(priceCents) / 100;
+
     const body: any = {
       customer: customer.id,
       billingType: data.metodo === "PIX" ? "PIX" : "CREDIT_CARD",
-      value: 12.90,
+      value: priceReais,
       dueDate,
       description: "Figurinha personalizada Copa",
       externalReference: data.sticker_id,
