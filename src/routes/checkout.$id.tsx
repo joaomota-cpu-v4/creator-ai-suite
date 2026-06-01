@@ -99,7 +99,7 @@ function Checkout() {
           </Tabs>
 
           <Button size="lg" onClick={submit} disabled={loading} className="h-14 w-full bg-copa-green text-lg font-bold text-white hover:bg-copa-green/90">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : "Pagar R$ 12,90"}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : `Pagar ${price.formatted}`}
           </Button>
 
           <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
