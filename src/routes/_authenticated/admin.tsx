@@ -58,6 +58,10 @@ function Admin() {
           <Stat label="Receita" value={s.data ? `R$ ${(s.data.revenueCents / 100).toFixed(2)}` : "-"} />
         </div>
 
+        <PriceEditor />
+
+
+
         <Card className="mt-8 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted text-left">
