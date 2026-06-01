@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createAsaasPayment } from "@/lib/asaas.functions";
+import { usePrice } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
