@@ -1,23 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { resolveOrderId } from "./order.functions";
 
 const CreateInput = z.object({
+  order_id: z.string().uuid(),
   nome: z.string().min(1).max(80),
   email: z.string().email().max(200),
   data_nascimento: z.string().optional().nullable(),
   clube: z.string().max(80).optional().nullable(),
   peso_kg: z.coerce.number().min(1).max(300).optional().nullable(),
   altura_cm: z.coerce.number().min(30).max(250).optional().nullable(),
-  foto_base64: z.string().min(100), // data URL
+  foto_base64: z.string().min(100),
 });
 
 export const createSticker = createServerFn({ method: "POST" })
   .inputValidator((d) => CreateInput.parse(d))
   .handler(async ({ data }) => {
+    // valida limite do pedido
+    const { data: order } = await supabaseAdmin
+      .from("orders").select("id, quantity, status").eq("id", data.order_id).maybeSingle();
+    if (!order) throw new Error("Pedido não encontrado");
+    if (order.status === "CONFIRMED") {
+      // OK gerar mesmo confirmado, mas respeitando quantity
+    }
+    const { count } = await supabaseAdmin
+      .from("stickers").select("*", { count: "exact", head: true }).eq("order_id", data.order_id);
+    if ((count ?? 0) >= order.quantity) {
+      throw new Error(`Limite do plano atingido (${order.quantity} figurinha${order.quantity > 1 ? "s" : ""}).`);
+    }
+
     const stickerId = crypto.randomUUID();
 
-    // upload original photo
     const match = data.foto_base64.match(/^data:(image\/[a-z]+);base64,(.+)$/);
     if (!match) throw new Error("Foto inválida");
     const mime = match[1];
@@ -32,6 +46,7 @@ export const createSticker = createServerFn({ method: "POST" })
 
     const { error: insErr } = await supabaseAdmin.from("stickers").insert({
       id: stickerId,
+      order_id: data.order_id,
       nome: data.nome,
       email: data.email,
       data_nascimento: data.data_nascimento || null,
@@ -43,7 +58,17 @@ export const createSticker = createServerFn({ method: "POST" })
     });
     if (insErr) throw new Error(insErr.message);
 
-    // Generate sticker via Lovable AI (async-ish: do it now to keep flow simple)
+    // Atualiza orders.sticker_id se ainda estiver com placeholder (compat com sucesso por sticker)
+    const { data: cur } = await supabaseAdmin
+      .from("orders").select("sticker_id").eq("id", data.order_id).maybeSingle();
+    if (cur) {
+      const { data: existsAsSticker } = await supabaseAdmin
+        .from("stickers").select("id").eq("id", cur.sticker_id).maybeSingle();
+      if (!existsAsSticker) {
+        await supabaseAdmin.from("orders").update({ sticker_id: stickerId }).eq("id", data.order_id);
+      }
+    }
+
     try {
       const figurinhaUrl = await generateFigurinha({
         nome: data.nome,
@@ -106,21 +131,13 @@ STYLE:
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3.1-flash-image-preview",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: foto_base64 } },
-          ],
-        },
-      ],
+      messages: [{ role: "user", content: [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: foto_base64 } },
+      ]}],
       modalities: ["image", "text"],
     }),
   });
@@ -135,10 +152,7 @@ STYLE:
   if (Array.isArray(parts)) {
     for (const p of parts) {
       const u = p?.image_url?.url || p?.url;
-      if (typeof u === "string" && u.startsWith("data:image")) {
-        dataUrl = u;
-        break;
-      }
+      if (typeof u === "string" && u.startsWith("data:image")) { dataUrl = u; break; }
     }
   }
   if (!dataUrl) throw new Error("No image returned");
@@ -148,9 +162,7 @@ STYLE:
   const ext = m[1].split("/")[1] || "png";
   const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
   const outPath = `${stickerId}/figurinha.${ext}`;
-  const { error } = await supabaseAdmin.storage
-    .from("stickers")
-    .upload(outPath, bytes, { contentType: m[1], upsert: true });
+  const { error } = await supabaseAdmin.storage.from("stickers").upload(outPath, bytes, { contentType: m[1], upsert: true });
   if (error) throw new Error(error.message);
 
   const { data: pub } = supabaseAdmin.storage.from("stickers").getPublicUrl(outPath);
@@ -162,7 +174,7 @@ export const getStickerPublic = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { data: row, error } = await supabaseAdmin
       .from("stickers")
-      .select("id, nome, clube, status, figurinha_url, preview_url")
+      .select("id, nome, clube, status, figurinha_url, preview_url, order_id")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -173,12 +185,11 @@ export const getStickerPublic = createServerFn({ method: "GET" })
 export const getOrderPublic = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ stickerId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
+    const orderId = await resolveOrderId(data.stickerId);
+    if (!orderId) return null;
     const { data: order } = await supabaseAdmin
       .from("orders")
       .select("id, status, metodo, pix_qr_code, pix_copy_paste, invoice_url, valor_centavos")
-      .eq("sticker_id", data.stickerId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("id", orderId).maybeSingle();
     return order;
   });
