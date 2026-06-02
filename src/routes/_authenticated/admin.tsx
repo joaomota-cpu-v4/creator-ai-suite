@@ -3,15 +3,19 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { adminListOrders, adminStats, claimAdmin, isAdmin } from "@/lib/admin.functions";
-import { getPrice, setPrice } from "@/lib/settings.functions";
+import { adminListPlans, upsertPlan, deletePlan } from "@/lib/plans.functions";
+import { listWebhookLogs, resendWebhook, resendAllFailed, testWebhook } from "@/lib/webhooks.functions";
 import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: Admin });
 
@@ -33,7 +37,6 @@ function Admin() {
       <div className="flex min-h-screen items-center justify-center p-6" style={{ backgroundColor: "var(--copa-yellow)" }}>
         <Card className="w-full max-w-md p-6 text-center">
           <h1 className="font-display text-2xl text-primary">Você ainda não é admin</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Se você é o dono, clique abaixo para se tornar o primeiro admin.</p>
           <Button className="mt-4 w-full bg-primary" onClick={async () => {
             try { await claim({ data: {} }); me.refetch(); toast.success("Agora você é admin"); } catch (e: any) { toast.error(e.message); }
           }}>Tornar-me admin</Button>
@@ -58,88 +61,183 @@ function Admin() {
           <Stat label="Receita" value={s.data ? `R$ ${(s.data.revenueCents / 100).toFixed(2)}` : "-"} />
         </div>
 
-        <PriceEditor />
+        <Tabs defaultValue="pedidos" className="mt-8">
+          <TabsList>
+            <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
+            <TabsTrigger value="planos">Planos</TabsTrigger>
+            <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          </TabsList>
 
+          <TabsContent value="pedidos">
+            <Card className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left">
+                  <tr>
+                    <th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">E-mail</th>
+                    <th className="p-3">Método</th><th className="p-3">Status</th><th className="p-3">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(orders.data || []).map((o: any) => (
+                    <tr key={o.id} className="border-t">
+                      <td className="p-3 text-xs">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
+                      <td className="p-3">{o.stickers?.nome || o.id.slice(0,8)}</td>
+                      <td className="p-3">{o.stickers?.email}</td>
+                      <td className="p-3">{o.metodo}</td>
+                      <td className="p-3"><Badge variant={o.status === "CONFIRMED" ? "default" : o.status === "FAILED" ? "destructive" : "secondary"}>{o.status}</Badge></td>
+                      <td className="p-3">{formatBRL(o.valor_centavos || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </TabsContent>
 
-
-        <Card className="mt-8 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left">
-              <tr>
-                <th className="p-3">Data</th>
-                <th className="p-3">Cliente</th>
-                <th className="p-3">E-mail</th>
-                <th className="p-3">Método</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Figurinha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(orders.data || []).map((o: any) => (
-                <tr key={o.id} className="border-t">
-                  <td className="p-3 text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
-                  <td className="p-3">{o.stickers?.nome}</td>
-                  <td className="p-3">{o.stickers?.email}</td>
-                  <td className="p-3">{o.metodo}</td>
-                  <td className="p-3">
-                    <Badge variant={o.status === "CONFIRMED" ? "default" : o.status === "FAILED" ? "destructive" : "secondary"}>{o.status}</Badge>
-                  </td>
-                  <td className="p-3">
-                    {o.stickers?.figurinha_url ? <a className="text-primary underline" href={o.stickers.figurinha_url} target="_blank" rel="noreferrer">Ver</a> : "—"}
-                  </td>
-                </tr>
-              ))}
-              {!orders.data?.length && (
-                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Nenhum pedido ainda.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
+          <TabsContent value="planos"><PlanosEditor/></TabsContent>
+          <TabsContent value="webhooks"><WebhooksPanel/></TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 }
 
-function PriceEditor() {
-  const fetchPrice = useServerFn(getPrice);
-  const updatePrice = useServerFn(setPrice);
-  const q = useQuery({ queryKey: ["app-price"], queryFn: () => fetchPrice() });
-  const [val, setVal] = useState("");
-  const [saving, setSaving] = useState(false);
+function PlanosEditor() {
+  const list = useServerFn(adminListPlans);
+  const save = useServerFn(upsertPlan);
+  const del = useServerFn(deletePlan);
+  const q = useQuery({ queryKey: ["adminPlans"], queryFn: () => list() });
+  const [drafts, setDrafts] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (q.data && val === "") setVal((q.data.price_centavos / 100).toFixed(2).replace(".", ","));
-  }, [q.data, val]);
-
-  const save = async () => {
-    const cents = Math.round(parseFloat(val.replace(",", ".")) * 100);
-    if (!Number.isFinite(cents) || cents < 100) return toast.error("Valor inválido (mínimo R$ 1,00)");
-    setSaving(true);
-    try {
-      await updatePrice({ data: { price_centavos: cents } });
-      toast.success("Preço atualizado!");
-      q.refetch();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
+    if (q.data) {
+      const d: any = {};
+      q.data.forEach((p) => d[p.id] = { ...p });
+      setDrafts(d);
     }
+  }, [q.data]);
+
+  const update = (id: string, patch: any) => setDrafts((s) => ({ ...s, [id]: { ...s[id], ...patch } }));
+
+  const saveOne = async (id: string) => {
+    const p = drafts[id];
+    try {
+      await save({ data: {
+        id: p.id, name: p.name, slug: p.slug,
+        quantity: Number(p.quantity), price_centavos: Number(p.price_centavos),
+        active: !!p.active, sort_order: Number(p.sort_order),
+      }});
+      toast.success("Salvo");
+      q.refetch();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Excluir este plano?")) return;
+    try { await del({ data: { id } }); toast.success("Excluído"); q.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+
+  const addNew = async () => {
+    try {
+      await save({ data: {
+        name: "Novo plano", slug: "novo-" + Date.now(),
+        quantity: 1, price_centavos: 1000, active: true, sort_order: 99,
+      }});
+      q.refetch();
+    } catch (e: any) { toast.error(e.message); }
   };
 
   return (
-    <Card className="mt-6 p-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="font-display text-xl text-primary">Preço da figurinha</h2>
-          <p className="text-xs text-muted-foreground">Vale para landing, oferta, checkout e cobrança Asaas. Atual: <b>{q.data ? formatBRL(q.data.price_centavos) : "—"}</b></p>
-        </div>
-        <div className="flex items-end gap-2">
-          <div>
-            <Label>Novo preço (R$)</Label>
-            <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="12,90" className="w-32" />
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-display text-xl text-primary">Planos</h2>
+        <Button onClick={addNew} size="sm"><Plus className="mr-1 h-4 w-4"/>Novo</Button>
+      </div>
+      <div className="space-y-3">
+        {Object.values(drafts).map((p: any) => (
+          <div key={p.id} className="grid grid-cols-1 items-end gap-2 rounded-lg border p-3 md:grid-cols-7">
+            <div><Label>Nome</Label><Input value={p.name} onChange={(e) => update(p.id, { name: e.target.value })}/></div>
+            <div><Label>Slug</Label><Input value={p.slug} onChange={(e) => update(p.id, { slug: e.target.value })}/></div>
+            <div><Label>Qtd</Label><Input type="number" value={p.quantity} onChange={(e) => update(p.id, { quantity: e.target.value })}/></div>
+            <div><Label>Preço (centavos)</Label><Input type="number" value={p.price_centavos} onChange={(e) => update(p.id, { price_centavos: e.target.value })}/></div>
+            <div><Label>Ordem</Label><Input type="number" value={p.sort_order} onChange={(e) => update(p.id, { sort_order: e.target.value })}/></div>
+            <div className="flex items-center gap-2"><Switch checked={!!p.active} onCheckedChange={(v) => update(p.id, { active: v })}/><span className="text-xs">{p.active ? "Ativo" : "Inativo"}</span></div>
+            <div className="flex gap-1">
+              <Button size="sm" onClick={() => saveOne(p.id)}>Salvar</Button>
+              <Button size="sm" variant="ghost" onClick={() => remove(p.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+            </div>
           </div>
-          <Button onClick={save} disabled={saving} className="bg-primary">{saving ? "Salvando..." : "Salvar"}</Button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function WebhooksPanel() {
+  const [filter, setFilter] = useState<"all"|"success"|"failed">("all");
+  const list = useServerFn(listWebhookLogs);
+  const resend = useServerFn(resendWebhook);
+  const resendAll = useServerFn(resendAllFailed);
+  const test = useServerFn(testWebhook);
+  const q = useQuery({ queryKey: ["webhookLogs", filter], queryFn: () => list({ data: { filter } }) });
+
+  const doTest = async () => {
+    try { const r = await test({ data: {} }); toast.success(`HTTP ${r.status} em ${r.ms}ms`); q.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+  const doResend = async (orderId: string) => {
+    try { await resend({ data: { orderId } }); toast.success("Reenviado"); q.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+  const doResendAll = async (days?: number) => {
+    try { const r = await resendAll({ data: days ? { withinDays: days } : {} }); toast.success(`${r.tried} pedidos reenviados`); q.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1">
+          <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>Todos</Button>
+          <Button size="sm" variant={filter === "success" ? "default" : "outline"} onClick={() => setFilter("success")}>Sucesso</Button>
+          <Button size="sm" variant={filter === "failed" ? "default" : "outline"} onClick={() => setFilter("failed")}>Falhas</Button>
         </div>
+        <div className="flex gap-1">
+          <Button size="sm" variant="outline" onClick={doTest}><Zap className="mr-1 h-3 w-3"/>Testar</Button>
+          <Button size="sm" variant="outline" onClick={() => doResendAll(1)}>Reenviar falhas 24h</Button>
+          <Button size="sm" variant="outline" onClick={() => doResendAll(7)}>7 dias</Button>
+          <Button size="sm" variant="outline" onClick={() => doResendAll()}>Tudo</Button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-left"><tr>
+            <th className="p-2">Data</th><th className="p-2">Pedido</th><th className="p-2">Cliente</th>
+            <th className="p-2">Evento</th><th className="p-2">Status</th><th className="p-2">HTTP</th>
+            <th className="p-2">Tent.</th><th className="p-2"/>
+          </tr></thead>
+          <tbody>
+            {(q.data || []).map((l: any) => (
+              <tr key={l.id} className="border-t">
+                <td className="p-2 text-xs">{new Date(l.created_at).toLocaleString("pt-BR")}</td>
+                <td className="p-2 font-mono text-xs">{l.order_id?.slice(0,8)}</td>
+                <td className="p-2">{l.orders?.nome} · {l.orders?.email}</td>
+                <td className="p-2">{l.event_type}</td>
+                <td className="p-2"><Badge variant={l.success ? "default" : "destructive"}>{l.success ? "OK" : "FALHA"}</Badge></td>
+                <td className="p-2">{l.response_status ?? "-"}</td>
+                <td className="p-2">{l.attempts}</td>
+                <td className="p-2">
+                  {l.order_id && (
+                    <Button size="sm" variant="outline" onClick={() => doResend(l.order_id)}>
+                      <RefreshCw className="mr-1 h-3 w-3"/>Reenviar
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!q.data?.length && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Nenhum webhook ainda.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </Card>
   );

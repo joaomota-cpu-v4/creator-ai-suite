@@ -9,17 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CriarRouteImport } from './routes/criar'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SucessoIdRouteImport } from './routes/sucesso.$id'
 import { Route as OfertaIdRouteImport } from './routes/oferta.$id'
+import { Route as CriarOrderIdRouteImport } from './routes/criar.$orderId'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiZipOrderIdRouteImport } from './routes/api/zip.$orderId'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 
+const PlanosRoute = PlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -49,6 +56,11 @@ const OfertaIdRoute = OfertaIdRouteImport.update({
   path: '/oferta/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CriarOrderIdRoute = CriarOrderIdRouteImport.update({
+  id: '/$orderId',
+  path: '/$orderId',
+  getParentRoute: () => CriarRoute,
+} as any)
 const CheckoutIdRoute = CheckoutIdRouteImport.update({
   id: '/checkout/$id',
   path: '/checkout/$id',
@@ -72,10 +84,12 @@ const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/criar': typeof CriarRoute
+  '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
+  '/criar/$orderId': typeof CriarOrderIdRoute
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -83,10 +97,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/criar': typeof CriarRoute
+  '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
+  '/criar/$orderId': typeof CriarOrderIdRoute
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -96,10 +112,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/criar': typeof CriarRoute
+  '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
+  '/criar/$orderId': typeof CriarOrderIdRoute
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
@@ -111,8 +129,10 @@ export interface FileRouteTypes {
     | '/'
     | '/criar'
     | '/login'
+    | '/planos'
     | '/admin'
     | '/checkout/$id'
+    | '/criar/$orderId'
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
@@ -122,8 +142,10 @@ export interface FileRouteTypes {
     | '/'
     | '/criar'
     | '/login'
+    | '/planos'
     | '/admin'
     | '/checkout/$id'
+    | '/criar/$orderId'
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
@@ -134,8 +156,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/criar'
     | '/login'
+    | '/planos'
     | '/_authenticated/admin'
     | '/checkout/$id'
+    | '/criar/$orderId'
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
@@ -145,8 +169,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  CriarRoute: typeof CriarRoute
+  CriarRoute: typeof CriarRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PlanosRoute: typeof PlanosRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   OfertaIdRoute: typeof OfertaIdRoute
   SucessoIdRoute: typeof SucessoIdRoute
@@ -156,6 +181,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/planos': {
+      id: '/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof PlanosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -197,6 +229,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/oferta/$id'
       preLoaderRoute: typeof OfertaIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/criar/$orderId': {
+      id: '/criar/$orderId'
+      path: '/$orderId'
+      fullPath: '/criar/$orderId'
+      preLoaderRoute: typeof CriarOrderIdRouteImport
+      parentRoute: typeof CriarRoute
     }
     '/checkout/$id': {
       id: '/checkout/$id'
@@ -241,11 +280,22 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface CriarRouteChildren {
+  CriarOrderIdRoute: typeof CriarOrderIdRoute
+}
+
+const CriarRouteChildren: CriarRouteChildren = {
+  CriarOrderIdRoute: CriarOrderIdRoute,
+}
+
+const CriarRouteWithChildren = CriarRoute._addFileChildren(CriarRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  CriarRoute: CriarRoute,
+  CriarRoute: CriarRouteWithChildren,
   LoginRoute: LoginRoute,
+  PlanosRoute: PlanosRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   OfertaIdRoute: OfertaIdRoute,
   SucessoIdRoute: SucessoIdRoute,
@@ -255,3 +305,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -1,98 +1,123 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { getStickerPublic } from "@/lib/sticker.functions";
+import { getOrderFull, updateOrderPlan } from "@/lib/order.functions";
+import { listActivePlans } from "@/lib/plans.functions";
 import { fbqTrack } from "@/lib/pixel";
-import { usePrice, formatBRL } from "@/lib/price";
+import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/oferta/$id")({ component: Oferta });
 
 function Oferta() {
   const { id } = useParams({ from: "/oferta/$id" });
-  const fetchSticker = useServerFn(getStickerPublic);
-  const price = usePrice();
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["sticker", id],
-    queryFn: () => fetchSticker({ data: { id } }),
-    refetchInterval: (q) => (q.state.data?.status === "generated" ? false : 3000),
+  const navigate = useNavigate();
+  const fetchOrder = useServerFn(getOrderFull);
+  const fetchPlans = useServerFn(listActivePlans);
+  const swapPlan = useServerFn(updateOrderPlan);
+
+  const orderQ = useQuery({
+    queryKey: ["order-full", id],
+    queryFn: () => fetchOrder({ data: { id } }),
+    refetchInterval: (q) => {
+      const stickers = q.state.data?.stickers || [];
+      return stickers.every((s) => s.status === "generated" || s.status === "paid") ? false : 3000;
+    },
   });
+  const plansQ = useQuery({ queryKey: ["plans"], queryFn: () => fetchPlans() });
 
   useEffect(() => {
-    fbqTrack("InitiateCheckout", { content_name: "Figurinha Copa", value: price.reais, currency: "BRL" });
-  }, [price.reais]);
+    if (orderQ.data?.order.valor_centavos) {
+      fbqTrack("InitiateCheckout", { value: orderQ.data.order.valor_centavos / 100, currency: "BRL" });
+    }
+  }, [orderQ.data?.order.valor_centavos]);
 
+  const order = orderQ.data?.order;
+  const plan = orderQ.data?.plan;
+  const stickers = orderQ.data?.stickers || [];
+  const orderId = order?.id || id;
 
+  const upgrade = async (slug: string) => {
+    try {
+      await swapPlan({ data: { orderId, planSlug: slug } });
+      toast.success("Plano atualizado!");
+      orderQ.refetch();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const otherPlans = (plansQ.data || []).filter((p) => p.slug !== plan?.slug && p.quantity >= stickers.length);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--copa-yellow)" }}>
-      <div className="container mx-auto max-w-md px-4 py-6 md:max-w-3xl md:py-10">
+      <div className="container mx-auto max-w-4xl px-4 py-6 md:py-10">
         <h1 className="text-center font-display text-3xl text-primary md:text-5xl">
-          Sua figurinha está pronta! 🏆
+          {stickers.length > 1 ? "Suas figurinhas estão prontas!" : "Sua figurinha está pronta!"} 🏆
         </h1>
-        <p className="mt-2 text-center text-sm text-primary/80">Confira o preview e desbloqueie a versão em alta qualidade.</p>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl bg-white p-4 shadow-2xl">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-secondary/30">
-              {data?.preview_url ? (
+        {/* Grid de figurinhas com blur */}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {stickers.map((s) => (
+            <div key={s.id} className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white shadow-xl">
+              {s.preview_url ? (
                 <>
-                  <img src={data.preview_url} alt="figurinha" className="h-full w-full object-cover object-center" />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/50 to-black/85" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-white">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm ring-2 ring-white/40">
-                      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></svg>
-                    </div>
-                    <div className="font-display text-xl leading-tight">Libere sua figurinha<br/>após o pagamento</div>
-                    <span className="rounded-full bg-copa-green px-3 py-1 text-xs font-bold uppercase tracking-wide">Pronta em alta resolução</span>
+                  <img src={s.preview_url} className="h-full w-full object-cover" alt={s.nome}/>
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/40 to-black/80"/>
+                  <div className="absolute inset-0 flex items-end justify-center p-2">
+                    <span className="rounded-full bg-copa-green px-2 py-0.5 text-[10px] font-bold text-white">🔒 LIBERAR</span>
                   </div>
                 </>
               ) : (
-                <div className="flex h-full items-center justify-center text-center">
-                  <div>
-                    <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
-                    <p className="mt-2 text-sm text-muted-foreground">Gerando sua figurinha...</p>
-                  </div>
-                </div>
+                <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>
               )}
             </div>
-          </div>
+          ))}
+        </div>
 
-          <div className="space-y-4">
-            <div className="rounded-3xl bg-white p-6 shadow-2xl">
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm text-muted-foreground line-through">{formatBRL(Math.round(price.cents * 2.32))}</span>
-                <span className="rounded-full bg-copa-red px-2 py-0.5 text-xs font-bold text-white">-57%</span>
+        {/* Card de preço */}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <Card className="p-6">
+            <div className="text-sm text-muted-foreground">Plano <b>{plan?.name}</b></div>
+            <div className="font-display text-5xl text-primary">{order ? formatBRL(order.valor_centavos) : "..."}</div>
+            <p className="text-sm text-muted-foreground">{stickers.length}/{order?.quantity || 0} figurinha(s)</p>
+            <ul className="mt-4 space-y-1 text-sm">
+              <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Alta resolução 4K</li>
+              <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Entrega imediata</li>
+              <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Download ZIP de todas</li>
+            </ul>
+            <Button asChild size="lg" disabled={!order} className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white">
+              <Link to="/checkout/$id" params={{ id: orderId }}>⚽ Quero pagar agora</Link>
+            </Button>
+          </Card>
+
+          {/* Upsell */}
+          {otherPlans.length > 0 && (
+            <Card className="bg-secondary/30 p-6">
+              <h3 className="font-display text-xl text-primary">Quer aproveitar?</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Adicione mais figurinhas com desconto antes de pagar.</p>
+              <div className="space-y-2">
+                {otherPlans.map((p) => {
+                  const diff = p.price_centavos - (order?.valor_centavos || 0);
+                  const perUnit = formatBRL(p.price_centavos / p.quantity);
+                  return (
+                    <button key={p.id} onClick={() => upgrade(p.slug)} className="flex w-full items-center justify-between rounded-lg border-2 bg-white p-3 text-left hover:border-copa-green">
+                      <div>
+                        <div className="font-bold text-primary">{p.name} — {p.quantity} figurinhas</div>
+                        <div className="text-xs text-muted-foreground">{perUnit} cada</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold">{formatBRL(p.price_centavos)}</div>
+                        <div className="text-xs text-copa-green">+{formatBRL(Math.max(0, diff))}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="font-display text-5xl text-primary">{price.formatted}</div>
-              <p className="text-sm text-muted-foreground">à vista no PIX ou cartão</p>
-
-              <ul className="mt-4 space-y-2 text-sm">
-                {[
-                  "Figurinha em alta resolução (4K)",
-                  "Pronta para imprimir em qualquer tamanho",
-                  "Entrega imediata por e-mail",
-                  "Garantia de satisfação",
-                ].map((b) => (
-                  <li key={b} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-copa-green" /> {b}
-                  </li>
-                ))}
-              </ul>
-
-              <Button asChild size="lg" disabled={!data || data.status !== "generated"} className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white hover:bg-copa-red/90">
-                <Link to="/checkout/$id" params={{ id }}>
-                  {data?.status === "generated" ? "⚽ Quero minha figurinha" : "Aguardando geração..."}
-                </Link>
-              </Button>
-            </div>
-
-            <button onClick={() => refetch()} className="w-full text-center text-xs text-primary/70 underline">
-              Atualizar status
-            </button>
-          </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
