@@ -19,16 +19,19 @@ export type Database = {
           id: boolean
           price_centavos: number
           updated_at: string
+          webhook_secret: string | null
         }
         Insert: {
           id?: boolean
           price_centavos?: number
           updated_at?: string
+          webhook_secret?: string | null
         }
         Update: {
           id?: boolean
           price_centavos?: number
           updated_at?: string
+          webhook_secret?: string | null
         }
         Relationships: []
       }
@@ -45,6 +48,8 @@ export type Database = {
           nome: string | null
           pix_copy_paste: string | null
           pix_qr_code: string | null
+          plan_id: string | null
+          quantity: number
           status: Database["public"]["Enums"]["order_status"]
           sticker_id: string
           telefone: string | null
@@ -63,6 +68,8 @@ export type Database = {
           nome?: string | null
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
+          plan_id?: string | null
+          quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
           sticker_id: string
           telefone?: string | null
@@ -81,6 +88,8 @@ export type Database = {
           nome?: string | null
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
+          plan_id?: string | null
+          quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
           sticker_id?: string
           telefone?: string | null
@@ -89,6 +98,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "orders_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_sticker_id_fkey"
             columns: ["sticker_id"]
             isOneToOne: false
@@ -96,6 +112,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          price_centavos: number
+          quantity: number
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          price_centavos: number
+          quantity: number
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          price_centavos?: number
+          quantity?: number
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       stickers: {
         Row: {
@@ -108,6 +160,7 @@ export type Database = {
           foto_original_path: string | null
           id: string
           nome: string
+          order_id: string | null
           peso_kg: number | null
           preview_url: string | null
           status: Database["public"]["Enums"]["sticker_status"]
@@ -123,6 +176,7 @@ export type Database = {
           foto_original_path?: string | null
           id?: string
           nome: string
+          order_id?: string | null
           peso_kg?: number | null
           preview_url?: string | null
           status?: Database["public"]["Enums"]["sticker_status"]
@@ -138,6 +192,7 @@ export type Database = {
           foto_original_path?: string | null
           id?: string
           nome?: string
+          order_id?: string | null
           peso_kg?: number | null
           preview_url?: string | null
           status?: Database["public"]["Enums"]["sticker_status"]
@@ -163,6 +218,51 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_type: string
+          id: string
+          last_attempt_at: string
+          next_retry_at: string | null
+          order_id: string | null
+          request_payload: Json
+          response_body: string | null
+          response_status: number | null
+          success: boolean
+          webhook_url: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          last_attempt_at?: string
+          next_retry_at?: string | null
+          order_id?: string | null
+          request_payload: Json
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean
+          webhook_url: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          last_attempt_at?: string
+          next_retry_at?: string | null
+          order_id?: string | null
+          request_payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean
+          webhook_url?: string
         }
         Relationships: []
       }

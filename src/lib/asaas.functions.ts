@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { deliverSticker } from "./delivery.server";
+import { deliverOrder } from "./delivery.server";
+import { resolveOrderId } from "./order.functions";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
 
@@ -29,73 +30,70 @@ async function asaas(path: string, init?: RequestInit) {
 }
 
 async function getOrCreateCustomer(input: { nome: string; cpfCnpj: string; email: string; phone: string }) {
-  // Try find existing by cpfCnpj
   try {
     const list = await asaas(`/customers?cpfCnpj=${encodeURIComponent(input.cpfCnpj)}`);
     if (list?.data?.[0]?.id) return list.data[0];
-  } catch (e) {
-    console.warn("customer lookup failed, will create", e);
-  }
+  } catch (e) { console.warn("customer lookup failed, will create", e); }
   return asaas("/customers", {
     method: "POST",
     body: JSON.stringify({
-      name: input.nome,
-      cpfCnpj: input.cpfCnpj,
-      email: input.email,
-      mobilePhone: input.phone,
+      name: input.nome, cpfCnpj: input.cpfCnpj, email: input.email, mobilePhone: input.phone,
     }),
   });
 }
 
 const CheckoutInput = z.object({
-  sticker_id: z.string().uuid(),
+  // aceita orderId OU stickerId legacy
+  order_id: z.string().uuid().optional(),
+  sticker_id: z.string().uuid().optional(),
   nome: z.string().min(2),
   cpf: z.string().min(11).max(20),
   email: z.string().email(),
   telefone: z.string().min(8).max(20),
   metodo: z.enum(["PIX", "CREDIT_CARD"]),
   card: z.object({
-    holderName: z.string(),
-    number: z.string(),
-    expiryMonth: z.string(),
-    expiryYear: z.string(),
-    ccv: z.string(),
+    holderName: z.string(), number: z.string(),
+    expiryMonth: z.string(), expiryYear: z.string(), ccv: z.string(),
   }).optional(),
-});
+}).refine((d) => d.order_id || d.sticker_id, { message: "order_id ou sticker_id obrigatório" });
 
 export const createAsaasPayment = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data }) => {
     const cpfClean = data.cpf.replace(/\D/g, "");
     const phoneClean = data.telefone.replace(/\D/g, "");
-
     if (cpfClean.length !== 11 && cpfClean.length !== 14) {
       throw new Error("CPF inválido. Digite 11 dígitos.");
     }
 
+    const orderId = data.order_id || (await resolveOrderId(data.sticker_id!));
+    if (!orderId) throw new Error("Pedido não encontrado");
+
+    const { data: order } = await supabaseAdmin
+      .from("orders").select("id, status, sticker_id, plan_id, quantity, valor_centavos").eq("id", orderId).maybeSingle();
+    if (!order) throw new Error("Pedido não encontrado");
+    if (order.status === "CONFIRMED") {
+      return { orderId: order.id, status: "CONFIRMED", pixQr: null, pixCopy: null, invoiceUrl: null };
+    }
+
+    // valor vem do pedido (que foi setado pelo plano)
+    const priceCents = order.valor_centavos || 1290;
+    const priceReais = Math.round(priceCents) / 100;
+
     const customer = await getOrCreateCustomer({
-      nome: data.nome,
-      cpfCnpj: cpfClean,
-      email: data.email,
-      phone: phoneClean,
+      nome: data.nome, cpfCnpj: cpfClean, email: data.email, phone: phoneClean,
     });
 
-    const due = new Date();
-    due.setDate(due.getDate() + 1);
+    const due = new Date(); due.setDate(due.getDate() + 1);
     const dueDate = due.toISOString().slice(0, 10);
-
-    const { data: settings } = await supabaseAdmin
-      .from("app_settings").select("price_centavos").eq("id", true).maybeSingle();
-    const priceCents = settings?.price_centavos ?? 1290;
-    const priceReais = Math.round(priceCents) / 100;
 
     const body: any = {
       customer: customer.id,
       billingType: data.metodo === "PIX" ? "PIX" : "CREDIT_CARD",
       value: priceReais,
       dueDate,
-      description: "Figurinha personalizada Copa",
-      externalReference: data.sticker_id,
+      description: `Figurinha Copa — pedido ${order.id.slice(0, 8)}`,
+      externalReference: order.id,
     };
     if (data.metodo === "CREDIT_CARD" && data.card) {
       body.creditCard = {
@@ -106,12 +104,8 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
         ccv: data.card.ccv,
       };
       body.creditCardHolderInfo = {
-        name: data.nome,
-        email: data.email,
-        cpfCnpj: cpfClean,
-        postalCode: "01001000",
-        addressNumber: "0",
-        phone: phoneClean,
+        name: data.nome, email: data.email, cpfCnpj: cpfClean,
+        postalCode: "01001000", addressNumber: "0", phone: phoneClean,
       };
     }
 
@@ -120,31 +114,24 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     let pixQr: string | null = null;
     let pixCopy: string | null = null;
     if (data.metodo === "PIX") {
-      // Asaas às vezes leva 1-2s pra gerar o QR — tentamos algumas vezes, mas não bloqueamos
       for (let i = 0; i < 4; i++) {
         try {
           const qr = await asaas(`/payments/${payment.id}/pixQrCode`);
           pixQr = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : null;
           pixCopy = qr.payload || null;
           if (pixQr || pixCopy) break;
-        } catch (e) {
-          console.warn(`PIX QR tentativa ${i + 1} falhou`, e);
-        }
+        } catch (e) { console.warn(`PIX QR tentativa ${i + 1} falhou`, e); }
         await new Promise((r) => setTimeout(r, 800));
       }
-      // Se mesmo assim não veio, seguimos com invoiceUrl (link Asaas) como fallback
       if (!pixQr && !pixCopy && !payment.invoiceUrl) {
-        throw new Error("Não foi possível gerar o PIX agora. Verifique se sua conta Asaas tem chave PIX cadastrada e tente novamente.");
+        throw new Error("Não foi possível gerar o PIX agora. Verifique se sua conta Asaas tem chave PIX cadastrada.");
       }
     }
 
-
     const status = payment.status === "CONFIRMED" || payment.status === "RECEIVED" ? "CONFIRMED" : "PENDING";
 
-    const { data: order, error } = await supabaseAdmin.from("orders").insert({
-      sticker_id: data.sticker_id,
+    const { error } = await supabaseAdmin.from("orders").update({
       asaas_payment_id: payment.id,
-      valor_centavos: priceCents,
       metodo: data.metodo,
       status,
       pix_qr_code: pixQr,
@@ -154,45 +141,37 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       telefone: phoneClean,
       nome: data.nome,
       email: data.email,
-    }).select().single();
+    }).eq("id", order.id);
     if (error) throw new Error(error.message);
 
     if (status === "CONFIRMED") {
-      await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", data.sticker_id);
+      await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
       console.log("[pagamento] confirmado imediatamente", order.id);
-      deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
+      deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
     }
 
     return { orderId: order.id, status, pixQr, pixCopy, invoiceUrl: payment.invoiceUrl || null };
   });
 
-// Polling fallback: checa status no Asaas para pedidos pendentes
 export const checkOrderStatus = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ stickerId: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
+    const orderId = await resolveOrderId(data.id);
+    if (!orderId) return { status: null };
     const { data: order } = await supabaseAdmin
-      .from("orders")
-      .select("id, asaas_payment_id, status, sticker_id")
-      .eq("sticker_id", data.stickerId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .from("orders").select("id, asaas_payment_id, status").eq("id", orderId).maybeSingle();
     if (!order || order.status === "CONFIRMED" || !order.asaas_payment_id) return { status: order?.status || null };
 
     try {
       const p = await asaas(`/payments/${order.asaas_payment_id}`);
       if (p.status === "CONFIRMED" || p.status === "RECEIVED") {
         const { data: updated } = await supabaseAdmin
-          .from("orders")
-          .update({ status: "CONFIRMED" })
-          .eq("id", order.id)
-          .eq("status", "PENDING")
-          .select()
-          .maybeSingle();
+          .from("orders").update({ status: "CONFIRMED" })
+          .eq("id", order.id).eq("status", "PENDING").select().maybeSingle();
         if (updated) {
-          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
+          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
           console.log("[pagamento] confirmado via polling", order.id);
-          deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
+          deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
         }
         return { status: "CONFIRMED" };
       }
