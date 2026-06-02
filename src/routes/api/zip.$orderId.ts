@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/zip/$orderId")({
             zip.file(`${safe}.${ext}`, buf);
           } catch (e) { console.error("zip fetch err", e); }
         }
-        const blob = await zip.generateAsync({ type: "uint8array" });
+        const blob = await zip.generateAsync({ type: "arraybuffer" });
         return new Response(blob, {
           headers: {
             "Content-Type": "application/zip",
