@@ -1,76 +1,98 @@
+## Plano de atualização completa: pacotes, entrega, webhooks e admin
 
-# Figurinha Personalizada da Copa — App Completo
+Vou implementar em **fases** para manter o sistema operacional durante a migração. Abaixo o escopo total e como será dividido.
 
-App de venda de figurinhas personalizadas estilo Panini Copa, geradas por IA, com checkout via Asaas, entrega por e-mail e painel admin.
+---
 
-## Fluxo do usuário (frontend)
+### Fase 1 — Banco de dados (migration única)
 
-1. **Landing** (`/`) — fundo amarelo, headline "Transforme seu filho em uma figurinha personalizada da Copa do Mundo", mockup com 3 figurinhas sobrepostas, prova social ("+2.500 figurinhas já criadas"), CTA "Iniciar".
-2. **Quiz 4 passos** (`/criar`) com barra de progresso:
-   - Passo 1 (25%): Nome do craque + upload da foto do rosto
-   - Passo 2 (50%): Data de nascimento + e-mail
-   - Passo 3 (75%): Clube do coração + peso + altura
-   - Passo 4 (100%): "Gerando sua figurinha" — chama IA, mostra prévia borrada com marca d'água
-3. **Oferta** (`/oferta/:id`) — prévia da figurinha em destaque, "GOOLL! Sua figurinha está pronta", preço R$ 12,90 (de R$ 29,90), CTA "Receber minha figurinha".
-4. **Checkout** (`/checkout/:id`) — dados pessoais (CPF, telefone), escolha de Cartão ou Pix, integração Asaas.
-5. **Sucesso** (`/sucesso/:id`) — confirma envio por e-mail e mostra QR Pix se aplicável.
+**Tabela `plans`** (id, name, slug, quantity, price_centavos, active, sort_order, timestamps)
+- Seed automático: Individual (1 / R$12,90), Família (3 / R$29,90), Time (5 / R$44,90), Torcida (10 / R$79,90)
+- RLS: leitura pública, escrita só admin
 
-## Backend (Lovable Cloud + server functions)
+**Alterações em `orders`**
+- `plan_id uuid` (FK lógica → plans)
+- `quantity int default 1`
+- Backfill: orders existentes recebem o plano "Individual"
 
-### Banco de dados
-- `stickers` — id, nome, data_nasc, email, clube, peso, altura, foto_original_url, figurinha_url, preview_url, status (`draft`/`generated`/`paid`/`delivered`), created_at
-- `orders` — id, sticker_id, asaas_payment_id, valor, metodo (`PIX`/`CREDIT_CARD`), status (`PENDING`/`CONFIRMED`/`FAILED`), pix_qr, pix_copy_paste, created_at
-- `user_roles` — id, user_id, role (`admin`) — para painel
-- Storage bucket `stickers` (público para preview, privado para alta-res)
+**Alterações em `stickers`**
+- `order_id uuid` (vincula figurinha ao pedido — hoje é o inverso)
+- Backfill via orders.sticker_id atual
 
-### Server functions / rotas
-- `generateSticker` (serverFn) — recebe dados do quiz + foto base64 → chama Lovable AI (`google/gemini-3.1-flash-image-preview`) com prompt detalhado de figurinha Panini Copa → salva imagem no storage → retorna URL da prévia (com marca d'água) e id.
-- `createAsaasPayment` (serverFn) — cria cobrança no Asaas (PIX ou cartão) e retorna `paymentId` + dados Pix.
-- `/api/public/asaas-webhook` (rota servidor) — recebe webhook do Asaas, valida token, marca pedido como `CONFIRMED`, dispara entrega por e-mail com link da figurinha em alta resolução.
-- `sendDelivery` — usa Lovable Emails para enviar a figurinha final.
+**Tabela `webhook_logs`** (id, order_id, event_type, webhook_url, request_payload jsonb, response_status, response_body, success, attempts, next_retry_at, created_at, last_attempt_at)
+- RLS: admin only
 
-### Asaas
-- Secret `ASAAS_API_KEY` solicitado via add_secret (sandbox por padrão; fácil trocar pra produção).
-- Secret `ASAAS_WEBHOOK_TOKEN` para validar callbacks.
-- URL do webhook (`project--<id>.lovable.app/api/public/asaas-webhook`) será mostrada no chat pra você colar no painel Asaas.
+**Tabela `app_settings`** — adicionar `webhook_secret` (opcional, gerado se vazio)
 
-### IA
-- Lovable AI Gateway (`LOVABLE_API_KEY` auto-provisionado).
-- Modelo: `google/gemini-3.1-flash-image-preview` via `/v1/chat/completions` com `modalities: ["image","text"]`.
-- Prompt construído com: nome, idade calculada, clube, peso, altura, foto → "card colecionável estilo Panini Copa do Mundo 2026, criança vestindo camisa da seleção brasileira, escudo da FIFA, faixa azul com nome, dados na parte inferior, fundo holográfico verde-amarelo".
+---
 
-### E-mail
-- Usa Lovable Emails (configura domínio no fluxo). Envia HTML com link para download da figurinha em alta resolução após pagamento confirmado.
+### Fase 2 — Backend (server functions)
 
-## Painel Admin (`/admin`)
+- `plans.functions.ts`: `listPlans` (público), `listAllPlans`, `upsertPlan`, `deletePlan` (admin)
+- `asaas.functions.ts`: aceitar `planId` no checkout, calcular valor a partir do plano, salvar `plan_id` + `quantity` na order
+- `sticker.functions.ts`: 
+  - `createStickerForOrder(orderId)` valida `count(stickers where order_id) < order.quantity`
+  - `listStickersByOrder(orderId)` para área do cliente
+- `delivery.server.ts` (refatorar):
+  - busca **todas** as stickers do pedido
+  - monta payload com array `stickers[]`
+  - envia webhook com header `X-Webhook-Signature` (HMAC SHA256 de `WEBHOOK_SECRET`)
+  - registra em `webhook_logs` (sucesso ou falha + tentativa)
+  - envia e-mail (Resend) listando todas as figurinhas
+- `webhooks.functions.ts` (admin):
+  - `listWebhookLogs(filter)`, `resendWebhook(orderId)`, `resendAllFailed(range)`, `testWebhook()`
+- `retry.server.ts`: função `processRetries()` chamada por endpoint cron `/api/public/webhook-retry` (com `WEBHOOK_SECRET` no header) — varre logs com `success=false` e `attempts<5` cujo `next_retry_at <= now()`. Backoff: 1m, 5m, 15m, 1h, 4h.
+- ZIP download: rota `/api/zip/$orderId` — server route que stream-monta um zip das figurinhas (usa `jszip`).
 
-- Login com e-mail/senha (Lovable Cloud Auth).
-- Tabela `user_roles` com função `has_role()` security definer (padrão seguro, sem privilege escalation).
-- Dashboard com: total de figurinhas geradas, total de vendas, conversão quiz→pagamento, lista de pedidos com filtros por status, link pra reenviar e-mail.
-- Rota `/admin` protegida por layout `_authenticated` + checagem de role admin.
+---
 
-## Design
+### Fase 3 — Frontend cliente
 
-- Paleta: amarelo `#FFD60A` (fundo), azul royal `#0033A0` (textos e botões), verde `#00A859` (preço), branco para cards.
-- Tipografia: heading com fonte pesada estilo esportivo (Bebas Neue / Archivo Black), corpo em Inter.
-- Cards brancos com sombra suave, cantos arredondados, barra de progresso azul.
-- Animações sutis nas transições de passo + reveal da figurinha gerada.
+- **`/`**: seção de planos (cards lado a lado) carregando de `plans`
+- **`/criar`**: ao entrar exige `?plan=slug` (ou seletor no topo). Mostra contador "X/Y figurinhas geradas". Botão "Gerar nova" bloqueia ao atingir limite. Botão "Finalizar e pagar" → `/oferta/:orderId`
+- **`/oferta/:orderId`** (upsell): se plano atual < Torcida, mostra comparação com economia (preço/figurinha) e botão "Trocar para plano X". Aplica upgrade via `updateOrderPlan(orderId, planId)` antes do checkout
+- **`/checkout/:orderId`** e **`/sucesso/:orderId`**: usa valor do plano da order, lista todas as figurinhas, botão **"Baixar todas (ZIP)"** + downloads individuais
+- **`/meus-pedidos`** (nova): área do cliente autenticada listando pedidos pagos com figurinhas
 
-## Ordem de implementação
+---
 
-1. Habilitar Lovable Cloud + AI Gateway
-2. Migration: tabelas + storage + roles
-3. Design system (`styles.css`) + componentes base
-4. Landing + Quiz (4 passos com state)
-5. Server function `generateSticker` (IA)
-6. Tela de oferta + checkout
-7. Server functions Asaas + webhook público
-8. Configuração de e-mail (Lovable Emails) + entrega
-9. Auth + painel admin
-10. Pedir secret `ASAAS_API_KEY` e mostrar URL do webhook
+### Fase 4 — Admin
 
-## Notas
+- **Admin > Configurações de Planos**: CRUD completo (nome, qty, preço, ativo, ordem)
+- **Admin > Webhooks**: tabela com filtros (todos/sucesso/falha + período), botões "Reenviar", "Reenviar todos com falha", "Testar webhook"
+- O editor de preço único atual é substituído pelo CRUD de planos
 
-- Asaas funciona em sandbox sem precisar de conta verificada; recomendo começar em sandbox.
-- Cada figurinha gerada consome créditos de IA do seu workspace Lovable.
-- Para domínio próprio de e-mail (ex: `notify@suamarca.com.br`) você poderá configurar depois — começo enviando pelo domínio padrão Lovable.
+---
+
+### Fase 5 — Segurança e e-mail
+
+- `WEBHOOK_SECRET`: se não existir, gerar e salvar em `app_settings` automaticamente
+- Header `X-Webhook-Signature: sha256=<hex>` em todo POST
+- E-mail Resend: template HTML com lista de figurinhas + botões download. Falha silenciosa (só log).
+
+---
+
+### Compatibilidade / migração
+
+- Orders antigas viram plano "Individual" com `quantity=1`
+- Stickers antigas ganham `order_id` baseado em `orders.sticker_id`
+- Endpoints públicos antigos (`/sucesso/:stickerId`) continuam funcionando — resolvem o `order_id` via sticker
+- Nada quebra: o fluxo de 1 figurinha vira caso particular do fluxo de N
+
+---
+
+### Secrets necessários
+
+Já configurados: `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `LOVABLE_API_KEY`, `WEBHOOK_URL`
+
+A pedir (opcional):
+- `WEBHOOK_SECRET` (auto-gerado se ausente)
+- `RESEND_API_KEY` + `EMAIL_FROM` (e-mail desativado se ausentes)
+
+---
+
+### Aviso de escopo
+
+Isso é uma reescrita de ~15 arquivos + 1 migration grande + 3 novas tabelas + nova rota ZIP + nova área do cliente. Vou executar em sequência, validando após cada fase. Pode levar várias rodadas de edição.
+
+**Confirma para eu começar pela Fase 1 (migration do banco)?** Ou prefere ajustar algo no escopo antes (ex: preços iniciais dos planos, remover área do cliente, etc.)?
