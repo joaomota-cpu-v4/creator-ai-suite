@@ -40,6 +40,8 @@ function Oferta() {
   const plan = orderQ.data?.plan;
   const stickers = orderQ.data?.stickers || [];
   const orderId = order?.id || id;
+  const remaining = Math.max(0, (order?.quantity || 0) - stickers.length);
+  const hasRemaining = remaining > 0;
 
   const upgrade = async (slug: string) => {
     try {
@@ -83,13 +85,21 @@ function Oferta() {
             <div className="text-sm text-muted-foreground">Plano <b>{plan?.name}</b></div>
             <div className="font-display text-5xl text-primary">{order ? formatBRL(order.valor_centavos) : "..."}</div>
             <p className="text-sm text-muted-foreground">{stickers.length}/{order?.quantity || 0} figurinha(s)</p>
+            {hasRemaining && (
+              <div className="mt-4 rounded-lg border border-copa-green/30 bg-copa-green/10 p-3 text-sm text-primary">
+                Seu pacote ainda tem {remaining} figurinha{remaining > 1 ? "s" : ""} para gerar antes do pagamento.
+                <Button onClick={() => navigate({ to: "/criar/$orderId", params: { orderId } })} className="mt-3 w-full bg-copa-green text-white">
+                  Gerar figurinhas restantes
+                </Button>
+              </div>
+            )}
             <ul className="mt-4 space-y-1 text-sm">
               <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Alta resolução 4K</li>
               <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Entrega imediata</li>
               <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Download ZIP de todas</li>
             </ul>
             <Button asChild size="lg" disabled={!order} className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white">
-              <Link to="/checkout/$id" params={{ id: orderId }}>⚽ Quero pagar agora</Link>
+              <Link to="/checkout/$id" params={{ id: orderId }}>{hasRemaining ? "Pagar agora mesmo assim" : "⚽ Quero pagar agora"}</Link>
             </Button>
           </Card>
 

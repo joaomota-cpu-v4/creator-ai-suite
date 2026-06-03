@@ -20,7 +20,7 @@ export const createSticker = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // valida limite do pedido
     const { data: order } = await supabaseAdmin
-      .from("orders").select("id, quantity, status").eq("id", data.order_id).maybeSingle();
+      .from("orders").select("id, quantity, status, nome, email").eq("id", data.order_id).maybeSingle();
     if (!order) throw new Error("Pedido não encontrado");
     if (order.status === "CONFIRMED") {
       // OK gerar mesmo confirmado, mas respeitando quantity
@@ -69,8 +69,12 @@ export const createSticker = createServerFn({ method: "POST" })
           .from("stickers").select("id").eq("id", cur.sticker_id).maybeSingle();
         needsUpdate = !existsAsSticker;
       }
-      if (needsUpdate) {
-        await supabaseAdmin.from("orders").update({ sticker_id: stickerId }).eq("id", data.order_id);
+      const orderPatch: Record<string, string> = {};
+      if (needsUpdate) orderPatch.sticker_id = stickerId;
+      if (!order.nome) orderPatch.nome = data.nome;
+      if (!order.email) orderPatch.email = data.email;
+      if (Object.keys(orderPatch).length > 0) {
+        await supabaseAdmin.from("orders").update(orderPatch).eq("id", data.order_id);
       }
     }
 

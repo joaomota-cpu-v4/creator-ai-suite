@@ -14,11 +14,37 @@ export const adminListOrders = createServerFn({ method: "GET" })
     await ensureAdmin(context.userId);
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("id, status, metodo, valor_centavos, created_at, asaas_payment_id, sticker_id, stickers(nome, email, figurinha_url, status)")
+      .select("id, status, metodo, valor_centavos, created_at, asaas_payment_id, sticker_id, nome, email, telefone, cpf, quantity, plans(name, slug), stickers(nome, email, figurinha_url, status)")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    return data;
+
+    const orderIds = (data || []).map((o) => o.id);
+    const { data: stickerRows } = orderIds.length
+      ? await supabaseAdmin
+          .from("stickers")
+          .select("id, order_id, nome, email, figurinha_url, status, created_at")
+          .in("order_id", orderIds)
+          .order("created_at", { ascending: true })
+      : { data: [] };
+
+    const stickersByOrder = new Map<string, any[]>();
+    for (const sticker of stickerRows || []) {
+      if (!sticker.order_id) continue;
+      const list = stickersByOrder.get(sticker.order_id) || [];
+      list.push(sticker);
+      stickersByOrder.set(sticker.order_id, list);
+    }
+
+    return (data || []).map((order) => {
+      const stickerList = stickersByOrder.get(order.id) || [];
+      return {
+        ...order,
+        sticker_list: stickerList,
+        sticker_count: stickerList.length,
+        first_sticker: stickerList[0] || order.stickers || null,
+      };
+    });
   });
 
 export const adminStats = createServerFn({ method: "GET" })

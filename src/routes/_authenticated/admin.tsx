@@ -76,20 +76,29 @@ function Admin() {
                 <thead className="bg-muted text-left">
                   <tr>
                     <th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">E-mail</th>
-                    <th className="p-3">Método</th><th className="p-3">Status</th><th className="p-3">Valor</th>
+                    <th className="p-3">Plano</th><th className="p-3">Método</th><th className="p-3">Status</th><th className="p-3">Valor</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(orders.data || []).map((o: any) => (
-                    <tr key={o.id} className="border-t">
-                      <td className="p-3 text-xs">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
-                      <td className="p-3">{o.stickers?.nome || o.id.slice(0,8)}</td>
-                      <td className="p-3">{o.stickers?.email}</td>
-                      <td className="p-3">{o.metodo}</td>
-                      <td className="p-3"><Badge variant={o.status === "CONFIRMED" ? "default" : o.status === "FAILED" ? "destructive" : "secondary"}>{o.status}</Badge></td>
-                      <td className="p-3">{formatBRL(o.valor_centavos || 0)}</td>
-                    </tr>
-                  ))}
+                  {(orders.data || []).map((o: any) => {
+                    const firstSticker = o.first_sticker || o.stickers;
+                    const customerName = o.nome || firstSticker?.nome || o.id.slice(0,8);
+                    const customerEmail = o.email || firstSticker?.email || "-";
+                    return (
+                      <tr key={o.id} className="border-t">
+                        <td className="p-3 text-xs">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
+                        <td className="p-3">{customerName}</td>
+                        <td className="p-3">{customerEmail}</td>
+                        <td className="p-3 text-xs">
+                          <div>{o.plans?.name || "-"}</div>
+                          <div className="text-muted-foreground">{o.sticker_count || 0}/{o.quantity || 0} geradas</div>
+                        </td>
+                        <td className="p-3">{o.metodo}</td>
+                        <td className="p-3"><Badge variant={o.status === "CONFIRMED" ? "default" : o.status === "FAILED" ? "destructive" : "secondary"}>{o.status}</Badge></td>
+                        <td className="p-3">{formatBRL(o.valor_centavos || 0)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </Card>
