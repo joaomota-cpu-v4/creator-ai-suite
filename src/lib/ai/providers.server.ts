@@ -21,6 +21,7 @@ export interface GenerateResult {
 }
 
 async function getConfiguredProvider(): Promise<{ provider: ProviderName; fallback: boolean }> {
+  const geminiEnabled = process.env.ENABLE_GEMINI === "true";
   try {
     const { data } = await supabaseAdmin
       .from("app_settings")
@@ -28,9 +29,10 @@ async function getConfiguredProvider(): Promise<{ provider: ProviderName; fallba
       .eq("id", true)
       .maybeSingle();
     const p = (data?.ai_provider || process.env.AI_PROVIDER || "OPENAI").toUpperCase();
+    const provider = p === "GEMINI" && geminiEnabled ? "GEMINI" : "OPENAI";
     return {
-      provider: (p === "OPENAI" ? "OPENAI" : "GEMINI") as ProviderName,
-      fallback: data?.ai_fallback ?? false,
+      provider,
+      fallback: geminiEnabled ? data?.ai_fallback ?? false : false,
     };
   } catch {
     return { provider: "OPENAI", fallback: false };
