@@ -67,6 +67,7 @@ function Admin() {
             <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
             <TabsTrigger value="planos">Planos</TabsTrigger>
             <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+            <TabsTrigger value="ia">IA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pedidos">
