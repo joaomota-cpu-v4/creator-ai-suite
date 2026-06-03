@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Trash2, Zap } from "lucide-react";
+import { Download, Plus, RefreshCw, Trash2, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: Admin });
 
@@ -76,7 +76,7 @@ function Admin() {
                 <thead className="bg-muted text-left">
                   <tr>
                     <th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">E-mail</th>
-                    <th className="p-3">Plano</th><th className="p-3">Método</th><th className="p-3">Status</th><th className="p-3">Valor</th>
+                    <th className="p-3">Plano</th><th className="p-3">Status</th><th className="p-3">Valor</th><th className="p-3">Download</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -84,6 +84,9 @@ function Admin() {
                     const firstSticker = o.first_sticker || o.stickers;
                     const customerName = o.nome || firstSticker?.nome || o.id.slice(0,8);
                     const customerEmail = o.email || firstSticker?.email || "-";
+                    const paid = o.status === "CONFIRMED";
+                    const failed = o.status === "FAILED";
+                    const stickerLinks = (o.sticker_list || []).filter((s: any) => s.figurinha_url);
                     return (
                       <tr key={o.id} className="border-t">
                         <td className="p-3 text-xs">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
@@ -93,9 +96,28 @@ function Admin() {
                           <div>{o.plans?.name || "-"}</div>
                           <div className="text-muted-foreground">{o.sticker_count || 0}/{o.quantity || 0} geradas</div>
                         </td>
-                        <td className="p-3">{o.metodo}</td>
-                        <td className="p-3"><Badge variant={o.status === "CONFIRMED" ? "default" : o.status === "FAILED" ? "destructive" : "secondary"}>{o.status}</Badge></td>
-                        <td className="p-3">{formatBRL(o.valor_centavos || 0)}</td>
+                        <td className="p-3">
+                          <Badge variant={paid ? "default" : failed ? "destructive" : "secondary"}>
+                            {paid ? "Pago" : failed ? "Falhou" : "Pendente"}
+                          </Badge>
+                          <div className="mt-1 text-xs text-muted-foreground">{o.metodo}</div>
+                        </td>
+                        <td className="p-3 font-semibold">{formatBRL(o.valor_centavos || 0)}</td>
+                        <td className="p-3">
+                          {stickerLinks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {stickerLinks.map((s: any, index: number) => (
+                                <Button key={s.id} asChild size="sm" variant="outline">
+                                  <a href={s.figurinha_url} target="_blank" rel="noreferrer" download>
+                                    <Download className="mr-1 h-3 w-3"/>#{index + 1}
+                                  </a>
+                                </Button>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sem imagem</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

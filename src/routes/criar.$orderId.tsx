@@ -50,7 +50,7 @@ function Criar() {
 
   const onPhoto = async (file: File) => {
     if (file.size > 15 * 1024 * 1024) return toast.error("Máximo 15MB");
-    try { update("foto_base64", await compressImage(file, 1024, 0.82)); }
+    try { update("foto_base64", await compressImage(file, 768, 0.75)); }
     catch {
       const r = new FileReader();
       r.onload = () => update("foto_base64", r.result as string);

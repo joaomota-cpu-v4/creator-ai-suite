@@ -103,15 +103,19 @@ async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model:
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY ausente");
   const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini";
-  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
+  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "low";
   const quality = ["low", "medium", "high", "auto"].includes(requestedQuality)
     ? requestedQuality
-    : "medium";
+    : "low";
+  const requestedSize = process.env.OPENAI_IMAGE_SIZE || "1024x1536";
+  const size = ["1024x1024", "1024x1536", "1536x1024", "auto"].includes(requestedSize)
+    ? requestedSize
+    : "1024x1536";
   const form = new FormData();
   form.append("model", model);
   form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
   form.append("prompt", opts.prompt);
-  form.append("size", "1024x1536");
+  form.append("size", size);
   form.append("quality", quality);
   form.append("output_format", "png");
   form.append("n", "1");
