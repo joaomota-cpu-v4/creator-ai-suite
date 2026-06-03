@@ -19,20 +19,19 @@ export async function deliverOrder(orderId: string) {
 
   const { data: stickers } = await supabaseAdmin
     .from("stickers")
-    .select("id, nome, email, figurinha_url, preview_url")
+    .select("id, nome, email, status, figurinha_url, preview_url")
     .eq("order_id", orderId);
 
   const { data: plan } = order.plan_id
     ? await supabaseAdmin.from("plans").select("name, slug, quantity").eq("id", order.plan_id).maybeSingle()
     : { data: null };
 
-  await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
-    .eq("id", orderId).is("delivered_at", null);
-
   const payload = buildDeliveryPayload(order, plan, stickers || []);
 
   await sendWebhook(orderId, payload);
   await sendEmail(order, plan, stickers || []);
+  await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
+    .eq("id", orderId).is("delivered_at", null);
 }
 
 function getPublicBaseUrl() {
@@ -59,6 +58,7 @@ export function buildDeliveryPayload(order: any, plan: any, stickers: any[], eve
       status: s.status || null,
       image_url: imageUrl,
       download_url: imageUrl,
+      figurinha_url: s.figurinha_url || null,
       preview_url: s.preview_url || null,
     };
   });
@@ -88,6 +88,7 @@ export function buildDeliveryPayload(order: any, plan: any, stickers: any[], eve
     },
     quantity: order.quantity || stickers.length,
     generated_count: imageStickers.length,
+    generated: imageStickers.some((s) => !!s.image_url),
     nome: order.nome,
     email: order.email,
     telefone: order.telefone,

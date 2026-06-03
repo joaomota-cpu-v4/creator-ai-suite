@@ -76,7 +76,7 @@ function Admin() {
                 <thead className="bg-muted text-left">
                   <tr>
                     <th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">E-mail</th>
-                    <th className="p-3">Plano</th><th className="p-3">Status</th><th className="p-3">Valor</th><th className="p-3">Download</th>
+                    <th className="p-3">Plano</th><th className="p-3">Status</th><th className="p-3">Entrega</th><th className="p-3">Valor</th><th className="p-3">Download</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -87,6 +87,8 @@ function Admin() {
                     const paid = o.status === "CONFIRMED";
                     const failed = o.status === "FAILED";
                     const stickerLinks = (o.sticker_list || []).filter((s: any) => s.figurinha_url);
+                    const hasGenerated = stickerLinks.length > 0;
+                    const delivered = !!o.delivered_at;
                     return (
                       <tr key={o.id} className="border-t">
                         <td className="p-3 text-xs">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
@@ -101,6 +103,17 @@ function Admin() {
                             {paid ? "Pago" : failed ? "Falhou" : "Pendente"}
                           </Badge>
                           <div className="mt-1 text-xs text-muted-foreground">{o.metodo}</div>
+                        </td>
+                        <td className="p-3 text-xs">
+                          <div className={hasGenerated ? "font-medium text-copa-green" : "text-muted-foreground"}>
+                            {hasGenerated ? `${stickerLinks.length} gerada(s)` : "Sem imagem final"}
+                          </div>
+                          <div className={delivered ? "text-copa-green" : "text-muted-foreground"}>
+                            {delivered ? `Enviada ${new Date(o.delivered_at).toLocaleString("pt-BR")}` : "Entrega nao registrada"}
+                          </div>
+                          <div className={hasGenerated ? "text-copa-green" : "text-muted-foreground"}>
+                            {hasGenerated ? "Download disponivel" : "Download indisponivel"}
+                          </div>
                         </td>
                         <td className="p-3 font-semibold">{formatBRL(o.valor_centavos || 0)}</td>
                         <td className="p-3">

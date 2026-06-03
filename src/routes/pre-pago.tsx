@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { listActivePlans } from "@/lib/plans.functions";
 import { createDraftOrder, getOrderFull } from "@/lib/order.functions";
 import { createStickerDraft } from "@/lib/sticker.functions";
 import { formatBRL } from "@/lib/price";
+import { fbqTrack } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,10 @@ function PrePago() {
   const selectedPlan = (plans.data || []).find((plan) => plan.slug === selectedPlanSlug) || plans.data?.[0];
   const used = orderQ.data?.stickers.length ?? 0;
   const quantity = orderQ.data?.order.quantity ?? selectedPlan?.quantity ?? 1;
+
+  useEffect(() => {
+    fbqTrack("ViewContent", { content_name: "Pre pago figurinha", content_category: "prepaid_flow" });
+  }, []);
 
   const onPhoto = async (file: File) => {
     if (file.size > 15 * 1024 * 1024) return toast.error("Maximo 15MB");
@@ -85,8 +90,19 @@ function PrePago() {
           foto_base64: form.foto_base64,
         },
       });
+      fbqTrack("Lead", {
+        content_name: "Previa figurinha",
+        content_category: "prepaid_preview",
+        value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
+        currency: "BRL",
+      });
       await orderQ.refetch();
       if (used + 1 >= quantity) {
+        fbqTrack("InitiateCheckout", {
+          content_name: selectedPlan?.name || "Figurinha Copa",
+          value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
+          currency: "BRL",
+        });
         navigate({ to: "/checkout/$id", params: { id: currentOrderId } });
       } else {
         setForm({ nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: form.email, foto_base64: "" });
@@ -124,7 +140,10 @@ function PrePago() {
               <HeroStickerImage src={stickerDaviLucca} alt="Exemplo de figurinha infantil Davi Lucca" rotate={-2} position="left-1/2 top-16 -translate-x-1/2" />
             </div>
 
-            <Button onClick={() => setStarted(true)} size="lg" className="mt-6 h-16 w-full rounded-2xl bg-copa-green text-lg font-bold text-white shadow-xl hover:bg-copa-green/90">
+            <Button onClick={() => {
+              fbqTrack("Lead", { content_name: "Comecar pre pago", content_category: "prepaid_start" });
+              setStarted(true);
+            }} size="lg" className="mt-6 h-16 w-full rounded-2xl bg-copa-green text-lg font-bold text-white shadow-xl hover:bg-copa-green/90">
               <Camera className="mr-2 h-5 w-5" /> Comecar - e gratis tentar
             </Button>
 
@@ -175,7 +194,14 @@ function PrePago() {
               <p className="text-sm text-muted-foreground">{used}/{quantity} previa(s) salva(s)</p>
             </div>
             {used > 0 && (
-              <Button variant="outline" onClick={() => navigate({ to: "/checkout/$id", params: { id: orderId } })}>
+              <Button variant="outline" onClick={() => {
+                fbqTrack("InitiateCheckout", {
+                  content_name: selectedPlan?.name || "Figurinha Copa",
+                  value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
+                  currency: "BRL",
+                });
+                navigate({ to: "/checkout/$id", params: { id: orderId } });
+              }}>
                 Pagar agora
               </Button>
             )}

@@ -164,6 +164,36 @@ async function blobToDataUrl(blob: Blob, fallbackMime = "image/jpeg") {
   return `data:${blob.type || fallbackMime};base64,${base64}`;
 }
 
+async function bufferToDataUrl(bytes: ArrayBuffer | Uint8Array, mime = "image/png") {
+  const buffer = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const base64 = typeof Buffer !== "undefined"
+    ? Buffer.from(buffer).toString("base64")
+    : btoa(Array.from(buffer, (b) => String.fromCharCode(b)).join(""));
+  return `data:${mime};base64,${base64}`;
+}
+
+async function getStickerTemplateDataUrl() {
+  const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
+  if (publicBase) {
+    try {
+      const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/sticker-preview-bg.png`);
+      if (res.ok) return bufferToDataUrl(await res.arrayBuffer(), "image/png");
+    } catch (e) {
+      console.warn("[AI] template fetch failed", e);
+    }
+  }
+
+  try {
+    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
+    const { join } = await import(/* @vite-ignore */ "node:path");
+    const bytes = await readFile(join(process.cwd(), "public", "assets", "sticker-preview-bg.png"));
+    return bufferToDataUrl(bytes, "image/png");
+  } catch (e) {
+    console.warn("[AI] local template unavailable", e);
+    return null;
+  }
+}
+
 export async function generateStickerImageForRow(stickerId: string, status: "generated" | "paid" = "generated") {
   const { data: sticker, error } = await supabaseAdmin
     .from("stickers")
@@ -229,13 +259,20 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
   const nomeUpper = nome.toUpperCase();
   const clubeUpper = (clube || "BRASIL").toUpperCase();
 
-  const prompt = `Create a premium modern football album collectible card, vertical 2:3 format, using the uploaded reference photo as the athlete portrait.
+  const templateDataUrl = await getStickerTemplateDataUrl();
+
+  const prompt = `Create the final paid football sticker in vertical 2:3 format.
+
+INPUTS:
+- Image 1 is the child reference photo.
+- Image 2, when provided, is the exact sticker background/template to follow.
 
 PORTRAIT:
 - Keep one centered athlete only, smiling naturally, looking directly at the camera.
 - Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
 - Turn the person into a polished youth football athlete portrait with realistic studio photography, soft even lighting, sharp focus, natural skin texture and professional retouching.
 - Do not cartoonize, caricature, repaint, distort, age-change, or alter the identity.
+- The child should be large in the composition, occupying most of the sticker height, with the face and Brazil jersey as the visual priority.
 
 WARDROBE:
 - The child must be wearing a Brazil national team style football uniform.
@@ -244,9 +281,9 @@ WARDROBE:
 - Keep the shirt visible from shoulders to torso and make it one of the main premium details of the sticker.
 
 BACKGROUND:
-- Follow the provided preview/template style: turquoise, green, yellow and white World Cup inspired graphic background.
-- Use bold official-looking geometric shapes and premium print finish, but do not add the old huge "23", vertical "BRA", fake FIFA text, or improvised flags.
-- Keep the background behind the athlete clean and secondary. The child's face and Brazil-style jersey must be the visual priority.
+- Follow the exact visual direction of the provided template background: bold turquoise, green, yellow, white and red World Cup inspired geometric artwork.
+- Do not use the old design with huge "23", vertical "BRA", fake FIFA text, or improvised flag.
+- Do not invent a generic badge/card layout. The final image must look like the same product family as the provided template.
 
 CARD DESIGN:
 - Premium official-looking football card, contemporary sports graphic design, high-quality print finish.
@@ -262,7 +299,12 @@ QUALITY RULES:
 - Text must be crisp, readable, centered, and spelled exactly as provided.
 - Keep hands out of frame if possible. Avoid distorted face, crossed eyes, extra people, bad anatomy, blurry image, pixelation, noisy background, cut-off head, broken logos, illegible text, random words, watermark, or amateur layout.`;
 
-  const result = await aiGenerateSticker({ prompt, imageDataUrl: foto_base64, stickerId });
+  const result = await aiGenerateSticker({
+    prompt,
+    imageDataUrl: foto_base64,
+    referenceImageDataUrls: templateDataUrl ? [templateDataUrl] : undefined,
+    stickerId,
+  });
   return result.publicUrl;
 }
 

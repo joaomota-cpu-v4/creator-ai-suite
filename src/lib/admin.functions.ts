@@ -14,9 +14,9 @@ export const adminListOrders = createServerFn({ method: "GET" })
     await ensureAdmin(context.userId);
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("id, status, metodo, valor_centavos, created_at, asaas_payment_id, sticker_id, nome, email, telefone, cpf, quantity, plans(name, slug), stickers(nome, email, figurinha_url, status)")
+      .select("id, status, metodo, valor_centavos, created_at, updated_at, delivered_at, asaas_payment_id, sticker_id, nome, email, telefone, cpf, quantity, plans(name, slug), stickers(nome, email, figurinha_url, status)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(1000);
     if (error) throw new Error(error.message);
 
     const orderIds = (data || []).map((o) => o.id);

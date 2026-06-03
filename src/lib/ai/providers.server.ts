@@ -9,6 +9,7 @@ export type ProviderName = "OPENAI" | "GEMINI";
 export interface GenerateOpts {
   prompt: string;
   imageDataUrl: string; // data:image/...;base64,xxx
+  referenceImageDataUrls?: string[];
   stickerId: string;
 }
 
@@ -80,6 +81,7 @@ async function callGemini(opts: GenerateOpts): Promise<{ dataUrl: string; model:
       messages: [{ role: "user", content: [
         { type: "text", text: opts.prompt },
         { type: "image_url", image_url: { url: opts.imageDataUrl } },
+        ...(opts.referenceImageDataUrls || []).map((url) => ({ type: "image_url", image_url: { url } })),
       ]}],
       modalities: ["image", "text"],
     }),
@@ -113,7 +115,12 @@ async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model:
     : "1024x1536";
   const form = new FormData();
   form.append("model", model);
-  form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
+  const references = [opts.imageDataUrl, ...(opts.referenceImageDataUrls || [])];
+  if (references.length > 1) {
+    references.forEach((url, index) => form.append("image[]", dataUrlToFile(url, `reference-${index + 1}.png`)));
+  } else {
+    form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
+  }
   form.append("prompt", opts.prompt);
   form.append("size", size);
   form.append("quality", quality);

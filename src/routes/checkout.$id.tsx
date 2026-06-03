@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { createAsaasPayment } from "@/lib/asaas.functions";
 import { getOrderFull } from "@/lib/order.functions";
 import { formatBRL } from "@/lib/price";
+import { fbqTrack } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,10 +32,36 @@ function Checkout() {
   });
   const u = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
+  useEffect(() => {
+    const order = orderQ.data?.order;
+    const firstSticker = orderQ.data?.stickers?.[0];
+    if (!order && !firstSticker) return;
+    setF((prev) => ({
+      ...prev,
+      nome: prev.nome || order?.nome || firstSticker?.nome || "",
+      email: prev.email || order?.email || firstSticker?.email || "",
+      holderName: prev.holderName || order?.nome || firstSticker?.nome || "",
+    }));
+  }, [orderQ.data]);
+
+  useEffect(() => {
+    if (!orderQ.data?.order.id || !valor) return;
+    fbqTrack("InitiateCheckout", {
+      content_name: orderQ.data.plan?.name || "Figurinha Copa",
+      value: valor / 100,
+      currency: "BRL",
+    });
+  }, [orderQ.data?.order.id, orderQ.data?.plan?.name, valor]);
+
   const submit = async () => {
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
     setLoading(true);
     try {
+      fbqTrack("AddPaymentInfo", {
+        content_name: orderQ.data?.plan?.name || "Figurinha Copa",
+        value: valor / 100,
+        currency: "BRL",
+      });
       await pay({
         data: {
           order_id: orderQ.data?.order.id || id,

@@ -27,12 +27,33 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         const newStatus = paid ? "CONFIRMED" : failed ? "FAILED" : null;
         if (!newStatus) return new Response("ok", { status: 200 });
 
-        const { data: order } = await supabaseAdmin
+        let { data: order } = await supabaseAdmin
           .from("orders")
           .update({ status: newStatus })
           .eq("asaas_payment_id", payment.id)
           .select("id")
           .maybeSingle();
+
+        if (!order?.id && payment.externalReference) {
+          const { data: fallbackOrder } = await supabaseAdmin
+            .from("orders")
+            .update({
+              status: newStatus,
+              asaas_payment_id: payment.id,
+            })
+            .eq("id", payment.externalReference)
+            .select("id")
+            .maybeSingle();
+          order = fallbackOrder;
+        }
+
+        if (!order?.id) {
+          console.warn("[webhook] pagamento sem pedido correspondente", {
+            paymentId: payment.id,
+            externalReference: payment.externalReference,
+            event,
+          });
+        }
 
         if (paid && order?.id) {
           await generateMissingStickersForOrder(order.id);
