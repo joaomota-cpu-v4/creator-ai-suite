@@ -26,10 +26,8 @@ export const createDraftOrder = createServerFn({ method: "POST" })
       .eq("slug", data.planSlug).eq("active", true).maybeSingle();
     if (pe || !plan) throw new Error("Plano indisponível");
 
-    // sticker_id placeholder (NOT NULL na tabela). Usaremos uuid aleatório temporário.
-    const placeholder = crypto.randomUUID();
     const { data: order, error } = await supabaseAdmin.from("orders").insert({
-      sticker_id: placeholder,
+      sticker_id: null,
       plan_id: plan.id,
       quantity: plan.quantity,
       valor_centavos: plan.price_centavos,
