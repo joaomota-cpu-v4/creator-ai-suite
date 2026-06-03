@@ -246,6 +246,84 @@ function WebhooksPanel() {
   );
 }
 
+function IAPanel() {
+  const status = useServerFn(getAiStatus);
+  const setProv = useServerFn(setAiProvider);
+  const logs = useServerFn(listAiLogs);
+  const sq = useQuery({ queryKey: ["aiStatus"], queryFn: () => status({ data: {} }), refetchInterval: 10000 });
+  const lq = useQuery({ queryKey: ["aiLogs"], queryFn: () => logs({ data: { limit: 50 } }), refetchInterval: 10000 });
+
+  const change = async (provider: "OPENAI" | "GEMINI") => {
+    try { await setProv({ data: { provider } }); toast.success(`Provider: ${provider}`); sq.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+  const toggleFallback = async (v: boolean) => {
+    const current = sq.data?.provider || "GEMINI";
+    try { await setProv({ data: { provider: current, fallback: v } }); sq.refetch(); }
+    catch (e: any) { toast.error(e.message); }
+  };
+
+  const s = sq.data;
+
+  return (
+    <Card className="p-5 space-y-5">
+      <div>
+        <h2 className="font-display text-xl text-primary mb-3">Provedor de IA</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant={s?.provider === "GEMINI" ? "default" : "outline"} onClick={() => change("GEMINI")}>
+            GEMINI {s?.hasGeminiKey ? "✓" : "⚠"}
+          </Button>
+          <Button size="sm" variant={s?.provider === "OPENAI" ? "default" : "outline"} onClick={() => change("OPENAI")}>
+            OPENAI {s?.hasOpenAIKey ? "✓" : "⚠"}
+          </Button>
+          <div className="ml-4 flex items-center gap-2">
+            <Switch checked={!!s?.fallback} onCheckedChange={toggleFallback}/>
+            <span className="text-sm">Fallback automático</span>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          As chaves <code>OPENAI_API_KEY</code> e <code>GEMINI_API_KEY</code> são gerenciadas em Secrets.
+          {!s?.hasOpenAIKey && " ⚠ OPENAI_API_KEY ausente."}
+          {!s?.hasGeminiKey && " ⚠ GEMINI_API_KEY ausente."}
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Stat label="Sucessos (24h)" value={s?.ok24h ?? "-"} />
+        <Stat label="Erros (24h)" value={s?.errors24h ?? "-"} />
+        <Stat label="Última geração" value={s?.last ? `${s.last.provider} · ${s.last.success ? "OK" : "FALHA"}` : "-"} />
+      </div>
+
+      <div>
+        <h3 className="font-display text-lg text-primary mb-2">Logs recentes</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-left"><tr>
+              <th className="p-2">Data</th><th className="p-2">Provider</th><th className="p-2">Modelo</th>
+              <th className="p-2">Status</th><th className="p-2">Duração</th><th className="p-2">Fallback</th>
+              <th className="p-2">Erro</th>
+            </tr></thead>
+            <tbody>
+              {(lq.data || []).map((l: any) => (
+                <tr key={l.id} className="border-t">
+                  <td className="p-2 text-xs">{new Date(l.created_at).toLocaleString("pt-BR")}</td>
+                  <td className="p-2">{l.provider}</td>
+                  <td className="p-2 text-xs">{l.model || "-"}</td>
+                  <td className="p-2"><Badge variant={l.success ? "default" : "destructive"}>{l.success ? "OK" : "FALHA"}</Badge></td>
+                  <td className="p-2">{l.duration_ms}ms</td>
+                  <td className="p-2">{l.fallback_used ? "sim" : "-"}</td>
+                  <td className="p-2 text-xs text-destructive truncate max-w-[300px]">{l.error || ""}</td>
+                </tr>
+              ))}
+              {!lq.data?.length && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Sem registros.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: any }) {
   return (
     <Card className="p-5">
@@ -253,4 +331,5 @@ function Stat({ label, value }: { label: string; value: any }) {
       <div className="mt-1 font-display text-3xl text-primary">{value}</div>
     </Card>
   );
+}
 }
