@@ -194,6 +194,77 @@ async function getStickerTemplateDataUrl() {
   }
 }
 
+async function getStickerBackgroundHref() {
+  try {
+    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
+    const { join } = await import(/* @vite-ignore */ "node:path");
+    const svg = await readFile(join(process.cwd(), "public", "assets", "sticker-preview-bg.svg"), "utf8");
+    const base64 = typeof Buffer !== "undefined"
+      ? Buffer.from(svg).toString("base64")
+      : btoa(svg);
+    return `data:image/svg+xml;base64,${base64}`;
+  } catch (e) {
+    console.warn("[sticker] background SVG unavailable", e);
+  }
+
+  const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
+  return publicBase ? `${publicBase.replace(/\/+$/, "")}/assets/sticker-preview-bg.svg` : null;
+}
+
+function escapeXml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+async function uploadFinalStickerSvg(stickerId: string, svg: string) {
+  const bytes = new TextEncoder().encode(svg);
+  const path = `${stickerId}/figurinha.svg`;
+  const { error } = await supabaseAdmin.storage
+    .from("stickers")
+    .upload(path, bytes, { contentType: "image/svg+xml", upsert: true });
+  if (error) throw new Error(error.message);
+  const { data } = supabaseAdmin.storage.from("stickers").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function composeFinalStickerSvg(input: {
+  stickerId: string;
+  portraitUrl: string;
+  nome: string;
+  stats: string;
+  clube: string;
+}) {
+  const backgroundHref = await getStickerBackgroundHref();
+  const bg = backgroundHref
+    ? `<image href="${escapeXml(backgroundHref)}" x="0" y="0" width="608" height="820" preserveAspectRatio="xMidYMid slice"/>`
+    : `<rect width="608" height="820" fill="#58C7CF"/>`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="608" height="820" viewBox="0 0 608 820">
+  <defs>
+    <clipPath id="cardClip"><rect width="608" height="820" rx="24" ry="24"/></clipPath>
+    <clipPath id="playerClip"><path d="M54 46 H554 V690 H54 Z"/></clipPath>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#002776" flood-opacity=".22"/></filter>
+  </defs>
+  <g clip-path="url(#cardClip)">
+    ${bg}
+    <g clip-path="url(#playerClip)" filter="url(#softShadow)">
+      <image href="${escapeXml(input.portraitUrl)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
+    </g>
+    <rect x="30" y="681" width="548" height="75" rx="22" fill="#1C8C93"/>
+    <text x="54" y="720" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="900">${escapeXml(input.nome)}</text>
+    <text x="54" y="744" fill="#EAF7F8" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="500">${escapeXml(input.stats)}</text>
+    <rect x="106" y="766" width="396" height="40" rx="12" fill="#147A82"/>
+    <text x="304" y="791" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing=".5">${escapeXml(input.clube)}</text>
+  </g>
+</svg>`;
+
+  return uploadFinalStickerSvg(input.stickerId, svg);
+}
+
 export async function generateStickerImageForRow(stickerId: string, status: "generated" | "paid" = "generated") {
   const { data: sticker, error } = await supabaseAdmin
     .from("stickers")
@@ -259,20 +330,20 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
   const nomeUpper = nome.toUpperCase();
   const clubeUpper = (clube || "BRASIL").toUpperCase();
 
-  const templateDataUrl = await getStickerTemplateDataUrl();
+  const stats = `${nascimento} | ${altura} | ${peso}`;
 
-  const prompt = `Create the final paid football sticker in vertical 2:3 format.
+  const prompt = `Create a photorealistic studio football portrait only.
 
 INPUTS:
 - Image 1 is the child reference photo.
-- Image 2, when provided, is the exact sticker background/template to follow.
 
 PORTRAIT:
 - Keep one centered athlete only, smiling naturally, looking directly at the camera.
 - Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
-- Turn the person into a polished youth football athlete portrait with realistic studio photography, soft even lighting, sharp focus, natural skin texture and professional retouching.
-- Do not cartoonize, caricature, repaint, distort, age-change, or alter the identity.
-- The child should be large in the composition, occupying most of the sticker height, with the face and Brazil jersey as the visual priority.
+- Output must look like a real high-resolution studio photograph, not an illustration.
+- Keep natural skin texture, realistic hair, realistic eyes, realistic fabric and true photographic lighting.
+- Do not cartoonize, caricature, repaint, draw, vectorize, stylize, smooth into plastic skin, or make it look AI-painted.
+- The child should be framed from head to torso, centered, with face and Brazil jersey as the visual priority.
 
 WARDROBE:
 - The child must be wearing a Brazil national team style football uniform.
@@ -280,32 +351,27 @@ WARDROBE:
 - The jersey should look like a professional Brazil selection football shirt, but avoid exact brand marks, sponsor marks, random letters, malformed badges, extra logos, or messy symbols.
 - Keep the shirt visible from shoulders to torso and make it one of the main premium details of the sticker.
 
-BACKGROUND:
-- Follow the exact visual direction of the provided template background: bold turquoise, green, yellow, white and red World Cup inspired geometric artwork.
-- Do not use the old design with huge "23", vertical "BRA", fake FIFA text, or improvised flag.
-- Do not invent a generic badge/card layout. The final image must look like the same product family as the provided template.
-
-CARD DESIGN:
-- Premium official-looking football card, contemporary sports graphic design, high-quality print finish.
-- Rounded card corners, subtle glossy finish, clean margins, no clutter.
-- Bottom: rounded teal-blue name bar with the exact player name in uppercase white letters:
-  "${nomeUpper}"
-- Under the name, render this exact stats line in a modern sports font:
-  "${nascimento} | ${altura} | ${peso}"
-- At the very bottom, add a smaller clean strip with the exact club text:
-  "${clubeUpper}"
+COMPOSITION:
+- Generate only the athlete portrait.
+- Do not generate any football card, sticker template, border, name bar, club bar, flag, logo, number, badge layout, typography, caption or written text.
+- Keep the background plain, clean and easy to crop around the athlete.
 
 QUALITY RULES:
-- Text must be crisp, readable, centered, and spelled exactly as provided.
-- Keep hands out of frame if possible. Avoid distorted face, crossed eyes, extra people, bad anatomy, blurry image, pixelation, noisy background, cut-off head, broken logos, illegible text, random words, watermark, or amateur layout.`;
+- Absolutely no text or letters anywhere in the generated image.
+- Keep hands out of frame if possible. Avoid distorted face, crossed eyes, extra people, bad anatomy, blurry image, pixelation, noisy background, cut-off head, broken logos, random words, watermark, illustration style, anime style, cartoon style, oil painting, 3D render, toy look, wax skin or amateur retouching.`;
 
   const result = await aiGenerateSticker({
     prompt,
     imageDataUrl: foto_base64,
-    referenceImageDataUrls: templateDataUrl ? [templateDataUrl] : undefined,
     stickerId,
   });
-  return result.publicUrl;
+  return composeFinalStickerSvg({
+    stickerId,
+    portraitUrl: result.publicUrl,
+    nome: nomeUpper,
+    stats,
+    clube: clubeUpper,
+  });
 }
 
 export const getStickerPublic = createServerFn({ method: "GET" })
