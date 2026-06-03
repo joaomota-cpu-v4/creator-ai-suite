@@ -1,0 +1,7 @@
+<svg width="180" height="220" viewBox="0 0 180 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="World Cup logo">
+  <path d="M90 16c35 0 60 23 60 56 0 30-19 52-43 64v28h28v18H45v-18h28v-28C49 124 30 102 30 72c0-33 25-56 60-56Z" fill="white" fill-opacity=".96"/>
+  <path d="M64 53c8-11 16-18 26-18s18 7 26 18c8 11 13 23 13 36 0 24-16 42-39 42S51 113 51 89c0-13 5-25 13-36Z" fill="#0058A4"/>
+  <path d="M72 58c5-7 11-11 18-11s13 4 18 11c6 8 10 18 10 29 0 18-12 31-28 31S62 105 62 87c0-11 4-21 10-29Z" fill="#58C7CF"/>
+  <path d="M90 64l8 17 18 3-13 13 3 18-16-9-16 9 3-18-13-13 18-3 8-17Z" fill="#FFD400"/>
+  <path d="M49 197h82" stroke="white" stroke-width="14" stroke-linecap="round"/>
+</svg>
