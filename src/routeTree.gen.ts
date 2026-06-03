@@ -19,6 +19,7 @@ import { Route as OfertaIdRouteImport } from './routes/oferta.$id'
 import { Route as CriarOrderIdRouteImport } from './routes/criar.$orderId'
 import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as CriarPlanoPlanSlugRouteImport } from './routes/criar.plano.$planSlug'
 import { Route as ApiZipOrderIdRouteImport } from './routes/api/zip.$orderId'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 
@@ -71,6 +72,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const CriarPlanoPlanSlugRoute = CriarPlanoPlanSlugRouteImport.update({
+  id: '/plano/$planSlug',
+  path: '/plano/$planSlug',
+  getParentRoute: () => CriarRoute,
+} as any)
 const ApiZipOrderIdRoute = ApiZipOrderIdRouteImport.update({
   id: '/api/zip/$orderId',
   path: '/api/zip/$orderId',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
+  '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
+  '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
+  '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
     | '/api/zip/$orderId'
+    | '/criar/plano/$planSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
     | '/api/zip/$orderId'
+    | '/criar/plano/$planSlug'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
     | '/api/zip/$orderId'
+    | '/criar/plano/$planSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -251,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/criar/plano/$planSlug': {
+      id: '/criar/plano/$planSlug'
+      path: '/plano/$planSlug'
+      fullPath: '/criar/plano/$planSlug'
+      preLoaderRoute: typeof CriarPlanoPlanSlugRouteImport
+      parentRoute: typeof CriarRoute
+    }
     '/api/zip/$orderId': {
       id: '/api/zip/$orderId'
       path: '/api/zip/$orderId'
@@ -282,10 +301,12 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 interface CriarRouteChildren {
   CriarOrderIdRoute: typeof CriarOrderIdRoute
+  CriarPlanoPlanSlugRoute: typeof CriarPlanoPlanSlugRoute
 }
 
 const CriarRouteChildren: CriarRouteChildren = {
   CriarOrderIdRoute: CriarOrderIdRoute,
+  CriarPlanoPlanSlugRoute: CriarPlanoPlanSlugRoute,
 }
 
 const CriarRouteWithChildren = CriarRoute._addFileChildren(CriarRouteChildren)
@@ -305,3 +326,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

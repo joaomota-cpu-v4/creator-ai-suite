@@ -2,32 +2,21 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { listActivePlans } from "@/lib/plans.functions";
-import { createDraftOrder } from "@/lib/order.functions";
 import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check, Trophy } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/planos")({ component: Planos });
 
 function Planos() {
   const navigate = useNavigate();
   const fetchPlans = useServerFn(listActivePlans);
-  const createOrder = useServerFn(createDraftOrder);
-  const [busy, setBusy] = useState<string | null>(null);
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => fetchPlans() });
   const planList = plans.data || [];
 
-  const choose = async (slug: string) => {
-    setBusy(slug);
-    try {
-      const { orderId } = await createOrder({ data: { planSlug: slug } });
-      navigate({ to: "/criar/$orderId", params: { orderId } });
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally { setBusy(null); }
+  const choose = (slug: string) => {
+    navigate({ to: "/criar/plano/$planSlug", params: { planSlug: slug } });
   };
 
   const cheapest = plans.data?.[0];
@@ -90,8 +79,8 @@ function Planos() {
                   <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green" /> Pronta para imprimir</li>
                   <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green" /> Entrega por e-mail</li>
                 </ul>
-                <Button onClick={() => choose(p.slug)} disabled={busy === p.slug} className="mt-4 bg-primary">
-                  {busy === p.slug ? "..." : "Escolher"}
+                <Button onClick={() => choose(p.slug)} className="mt-4 bg-primary">
+                  Escolher
                 </Button>
               </Card>
             );
