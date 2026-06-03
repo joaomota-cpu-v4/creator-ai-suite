@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { resolveOrderId } from "./order.functions";
+import { generateSticker as aiGenerateSticker } from "./ai/providers.server";
 
 const CreateInput = z.object({
   order_id: z.string().uuid(),
