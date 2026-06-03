@@ -7,11 +7,13 @@ import { createDraftOrder, getOrderFull } from "@/lib/order.functions";
 import { createStickerDraft } from "@/lib/sticker.functions";
 import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, Upload } from "lucide-react";
+import { Camera, Loader2, ShieldCheck, Sparkles, Star, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
+import stickerDaviLucca from "@/assets/sticker-davi-lucca.png";
+import stickerEnzo from "@/assets/sticker-enzo.png";
+import stickerMiguel from "@/assets/sticker-miguel.png";
 
 export const Route = createFileRoute("/pre-pago")({ component: PrePago });
 
@@ -23,8 +25,9 @@ function PrePago() {
   const saveDraft = useServerFn(createStickerDraft);
 
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => fetchPlans() });
+  const [started, setStarted] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: "", foto_base64: "",
@@ -37,20 +40,9 @@ function PrePago() {
   });
 
   const update = (key: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+  const selectedPlan = (plans.data || []).find((plan) => plan.slug === selectedPlanSlug) || plans.data?.[0];
   const used = orderQ.data?.stickers.length ?? 0;
-  const quantity = orderQ.data?.order.quantity ?? 1;
-
-  const choosePlan = async (planSlug: string) => {
-    setCreatingOrder(true);
-    try {
-      const result = await newOrder({ data: { planSlug } });
-      setOrderId(result.orderId);
-    } catch (e: any) {
-      toast.error(e.message || "Nao foi possivel iniciar o pedido");
-    } finally {
-      setCreatingOrder(false);
-    }
-  };
+  const quantity = orderQ.data?.order.quantity ?? selectedPlan?.quantity ?? 1;
 
   const onPhoto = async (file: File) => {
     if (file.size > 15 * 1024 * 1024) return toast.error("Maximo 15MB");
@@ -63,17 +55,27 @@ function PrePago() {
   };
 
   const submitDraft = async () => {
-    if (!orderId) return;
     if (!form.nome || !form.email || !form.foto_base64) {
       toast.error("Informe nome, e-mail e foto");
+      return;
+    }
+    if (!orderId && !selectedPlanSlug && !selectedPlan?.slug) {
+      toast.error("Escolha um plano");
       return;
     }
 
     setSaving(true);
     try {
+      let currentOrderId = orderId;
+      if (!currentOrderId) {
+        const result = await newOrder({ data: { planSlug: selectedPlanSlug || selectedPlan!.slug } });
+        currentOrderId = result.orderId;
+        setOrderId(result.orderId);
+      }
+
       await saveDraft({
         data: {
-          order_id: orderId,
+          order_id: currentOrderId,
           nome: form.nome,
           email: form.email,
           data_nascimento: form.data_nascimento || null,
@@ -85,7 +87,7 @@ function PrePago() {
       });
       await orderQ.refetch();
       if (used + 1 >= quantity) {
-        navigate({ to: "/checkout/$id", params: { id: orderId } });
+        navigate({ to: "/checkout/$id", params: { id: currentOrderId } });
       } else {
         setForm({ nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: form.email, foto_base64: "" });
         toast.success("Previa salva. Envie a proxima foto.");
@@ -97,27 +99,66 @@ function PrePago() {
     }
   };
 
-  if (!orderId) {
+  if (!started) {
     return (
-      <div className="min-h-screen px-4 py-8" style={{ backgroundColor: "var(--copa-yellow)" }}>
-        <main className="container mx-auto max-w-5xl">
-          <h1 className="text-center font-display text-4xl text-primary md:text-5xl">Fluxo pre-pago</h1>
-          <p className="mx-auto mt-2 max-w-xl text-center text-sm text-primary/80">
-            Teste: o cliente ve uma previa, paga o PIX, e a IA gera a figurinha final depois da confirmacao.
-          </p>
+      <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--copa-yellow)" }}>
+        <main className="px-5 py-8">
+          <div className="mx-auto max-w-md">
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <span className="rounded-full bg-copa-green px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                PREVIEW GRATIS ANTES DO PIX
+              </span>
+            </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {(plans.data || []).map((plan) => (
-              <Card key={plan.id} className="flex flex-col p-5">
-                <h2 className="font-display text-2xl text-primary">{plan.name}</h2>
-                <div className="mt-2 text-4xl font-bold text-primary">{plan.quantity}</div>
-                <p className="text-sm text-muted-foreground">figurinha{plan.quantity > 1 ? "s" : ""}</p>
-                <div className="mt-3 text-2xl font-bold text-copa-green">{formatBRL(plan.price_centavos)}</div>
-                <Button onClick={() => choosePlan(plan.slug)} disabled={creatingOrder} className="mt-5 bg-primary">
-                  {creatingOrder ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar este plano"}
-                </Button>
-              </Card>
-            ))}
+            <h1 className="mx-auto max-w-sm text-center font-display text-3xl leading-[1.08] text-primary sm:text-5xl">
+              Veja a previa antes de pagar
+            </h1>
+
+            <p className="mx-auto mt-3 max-w-xs text-center text-sm leading-relaxed text-primary/80 sm:max-w-sm sm:text-base">
+              Envie a foto, preencha os dados e veja um modelo com blur. A IA final so roda depois da confirmacao do pagamento.
+            </p>
+
+            <div className="relative mx-auto mt-6 h-80 w-full max-w-sm sm:h-96">
+              <HeroStickerImage src={stickerMiguel} alt="Exemplo de figurinha infantil Miguel" rotate={-10} position="left-0 top-10" />
+              <HeroStickerImage src={stickerEnzo} alt="Exemplo de figurinha infantil Enzo" rotate={8} position="right-0 top-4" />
+              <HeroStickerImage src={stickerDaviLucca} alt="Exemplo de figurinha infantil Davi Lucca" rotate={-2} position="left-1/2 top-16 -translate-x-1/2" />
+            </div>
+
+            <Button onClick={() => setStarted(true)} size="lg" className="mt-6 h-16 w-full rounded-2xl bg-copa-green text-lg font-bold text-white shadow-xl hover:bg-copa-green/90">
+              <Camera className="mr-2 h-5 w-5" /> Comecar - e gratis tentar
+            </Button>
+
+            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary/70">
+              <ShieldCheck className="h-3.5 w-3.5" /> Sem custo de IA antes do pagamento
+            </div>
+
+            <div className="mt-8 grid grid-cols-3 gap-2">
+              {[
+                { n: "1", t: "Foto", i: <Camera className="h-4 w-4" /> },
+                { n: "2", t: "Preview", i: <Sparkles className="h-4 w-4" /> },
+                { n: "3", t: "PIX", i: <Zap className="h-4 w-4" /> },
+              ].map((s) => (
+                <div key={s.n} className="min-w-0 rounded-2xl bg-white p-3 text-center shadow-md">
+                  <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    {s.i}
+                  </div>
+                  <div className="mt-1 text-xs font-bold text-primary">
+                    {s.n}. {s.t}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-primary/80">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="h-4 w-4 fill-copa-red text-copa-red" />
+                ))}
+              </div>
+              <span>
+                A figurinha final e gerada apos o PIX
+              </span>
+            </div>
           </div>
         </main>
       </div>
@@ -157,6 +198,31 @@ function PrePago() {
               </div>
               <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onPhoto(e.target.files[0])} />
             </label>
+
+            {!orderId && (
+              <div>
+                <Label>Escolha o plano</Label>
+                <div className="mt-2 grid gap-3 md:grid-cols-2">
+                  {(plans.data || []).map((plan) => {
+                    const active = (selectedPlanSlug || selectedPlan?.slug) === plan.slug;
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setSelectedPlanSlug(plan.slug)}
+                        className={`rounded-2xl border p-4 text-left transition ${active ? "border-copa-green bg-copa-green/10" : "border-primary/15 bg-white hover:border-primary/40"}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-display text-xl text-primary">{plan.name}</span>
+                          <span className="font-bold text-copa-green">{formatBRL(plan.price_centavos)}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{plan.quantity} figurinha{plan.quantity > 1 ? "s" : ""}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <Button onClick={submitDraft} disabled={saving} className="mt-6 h-12 w-full bg-copa-green text-white">
@@ -179,42 +245,58 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
 
   return (
     <aside className="mx-auto w-full max-w-[420px]">
-      <div className="relative aspect-[3/5] overflow-hidden rounded-[20px] bg-[#58c8cf] shadow-2xl">
-        <div className="absolute left-3 top-2 z-[1] text-[150px] font-black leading-none text-[#08a83e] md:text-[190px]">
-          2<span className="text-[#ffd400]">3</span>
+      <div className="relative aspect-[608/820] overflow-hidden rounded-[24px] bg-[#58C7CF]">
+        <div className="absolute left-[4%] top-[4%] z-[1] w-[85%] text-[170px] font-black leading-[.78] text-[#00A63E] md:text-[230px]">
+          2<span className="text-[#FFD400]">3</span>
         </div>
-        <div className="absolute right-6 top-7 z-[2] text-4xl font-black text-white">FIFA</div>
-        <div className="absolute right-[-8px] bottom-28 z-[2] [writing-mode:vertical-rl] text-7xl font-black text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,.8)]">BRA</div>
+        <div className="absolute right-[28px] top-[28px] z-[2] text-[54px] font-black leading-none text-white md:text-[68px]">FIFA</div>
+        <div className="absolute right-[-6px] top-[56%] z-[2] [writing-mode:vertical-rl] text-[76px] font-black leading-none text-transparent opacity-60 [-webkit-text-stroke:2px_rgba(255,255,255,.95)]">BRA</div>
 
-        <div className="absolute left-1/2 top-[90px] z-[3] h-[42%] w-[76%] -translate-x-1/2 overflow-hidden rounded-[20px] bg-white/20">
+        <div className="absolute left-1/2 top-[80px] z-[3] h-[72%] w-[76%] -translate-x-1/2 overflow-visible">
           {form.foto_base64 ? (
-            <img src={form.foto_base64} alt="Previa" className="h-full w-full object-cover blur-[1.3px] saturate-90" />
+            <img src={form.foto_base64} alt="Previa" className="h-full w-full object-cover object-top blur-[2px] saturate-90" />
           ) : (
             <div className="flex h-full items-center justify-center text-center text-sm font-semibold text-primary/70">Envie uma foto</div>
           )}
-          <div className="absolute inset-0 bg-black/10" />
+          {form.foto_base64 && <div className="absolute inset-0 bg-[#58C7CF]/10" />}
         </div>
 
-        <div className="absolute right-6 top-[67%] z-[4] flex h-10 w-14 items-center justify-center rounded-md border-2 border-white/60 bg-[#009c3b]">
+        <div className="absolute right-[24px] top-[57%] z-[4] flex h-[50px] w-[70px] items-center justify-center rounded-[8px] border-2 border-white/80 bg-[#009c3b]">
           <div className="h-5 w-8 rotate-45 bg-[#ffdf00]" />
           <div className="absolute h-3 w-3 rounded-full bg-[#002776]" />
         </div>
 
-        <div className="absolute left-5 right-5 bottom-[68px] z-[5] rounded-[20px] bg-[#087985]/90 px-5 py-4 text-white">
-          <div className="text-3xl font-black uppercase leading-none">{name}</div>
-          <div className="mt-2 text-lg font-semibold">{birth} | {height} | {weight}</div>
+        <div className="absolute bottom-[64px] left-1/2 z-[5] h-[75px] w-[90%] -translate-x-1/2 rounded-[22px] bg-[#1C8C93] px-6 py-3 text-white">
+          <div className="truncate text-[30px] font-black uppercase leading-none md:text-[36px]">{name}</div>
+          <div className="mt-2 text-[16px] font-medium text-[#EAF7F8]">{birth.replace(/\//g, "-")} | {height} | {weight}</div>
         </div>
-        <div className="absolute bottom-5 left-5 right-5 z-[5] rounded-xl bg-[#0f7f89] p-2 text-center text-lg font-bold text-white">{club}</div>
-
-        <div className="absolute inset-0 z-[8] bg-white/10 backdrop-blur-[1px]" />
-        <div className="absolute left-1/2 top-1/2 z-[9] -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded-2xl border-4 border-white/70 bg-black/25 px-8 py-3 text-center text-4xl font-black tracking-wider text-white/90">
-          PREVIA
-        </div>
-        <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full bg-orange-500 px-3 py-2 text-xs font-bold text-white">
-          <Lock className="h-3 w-3" /> IA APOS O PIX
+        <div className="absolute bottom-[18px] left-1/2 z-[5] flex h-[40px] w-[65%] -translate-x-1/2 items-center justify-center rounded-[12px] bg-[#147A82] px-3 text-center text-[14px] font-bold tracking-[.5px] text-white">
+          <span className="truncate">{club}</span>
         </div>
       </div>
     </aside>
+  );
+}
+
+function HeroStickerImage({
+  src,
+  alt,
+  rotate,
+  position,
+}: {
+  src: string;
+  alt: string;
+  rotate: number;
+  position: string;
+}) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      className={`absolute w-36 rounded-[28px] border-4 border-white bg-white object-cover shadow-2xl sm:w-44 ${position}`}
+      style={{ transform: `translateZ(0) rotate(${rotate}deg)` }}
+    />
   );
 }
 
