@@ -17,8 +17,8 @@ export const getAiStatus = createServerFn({ method: "GET" })
     const { data: settings } = await supabaseAdmin
       .from("app_settings").select("ai_provider, ai_fallback").eq("id", true).maybeSingle();
 
-    const provider = (settings?.ai_provider || "GEMINI") as "OPENAI" | "GEMINI";
-    const fallback = settings?.ai_fallback ?? true;
+    const provider = (settings?.ai_provider || "OPENAI") as "OPENAI" | "GEMINI";
+    const fallback = settings?.ai_fallback ?? false;
 
     const { data: last } = await supabaseAdmin
       .from("ai_logs").select("provider, model, success, duration_ms, fallback_used, error, created_at")

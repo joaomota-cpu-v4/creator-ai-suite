@@ -30,11 +30,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           .from("orders")
           .update({ status: newStatus })
           .eq("asaas_payment_id", payment.id)
-          .select("id, sticker_id")
+          .select("id")
           .maybeSingle();
 
-        if (paid && order?.sticker_id) {
-          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("id", order.sticker_id);
+        if (paid && order?.id) {
+          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
           console.log("[webhook] pagamento confirmado", order.id);
           deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
         }

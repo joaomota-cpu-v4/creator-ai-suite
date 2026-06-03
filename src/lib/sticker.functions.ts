@@ -90,6 +90,10 @@ export const createSticker = createServerFn({ method: "POST" })
         .eq("id", stickerId);
     } catch (e) {
       console.error("generation failed", e);
+      await supabaseAdmin.from("orders").update({ sticker_id: null }).eq("id", data.order_id).eq("sticker_id", stickerId);
+      await supabaseAdmin.from("stickers").delete().eq("id", stickerId);
+      const message = e instanceof Error ? e.message : String(e);
+      throw new Error(`Falha ao gerar a figurinha: ${message}`);
     }
 
     return { id: stickerId };

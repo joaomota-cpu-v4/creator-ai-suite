@@ -27,13 +27,13 @@ async function getConfiguredProvider(): Promise<{ provider: ProviderName; fallba
       .select("ai_provider, ai_fallback")
       .eq("id", true)
       .maybeSingle();
-    const p = (data?.ai_provider || process.env.AI_PROVIDER || "GEMINI").toUpperCase();
+    const p = (data?.ai_provider || process.env.AI_PROVIDER || "OPENAI").toUpperCase();
     return {
       provider: (p === "OPENAI" ? "OPENAI" : "GEMINI") as ProviderName,
-      fallback: data?.ai_fallback ?? true,
+      fallback: data?.ai_fallback ?? false,
     };
   } catch {
-    return { provider: "GEMINI", fallback: true };
+    return { provider: "OPENAI", fallback: false };
   }
 }
 
@@ -48,6 +48,21 @@ async function uploadAndPublish(stickerId: string, dataUrl: string): Promise<str
   if (error) throw new Error(error.message);
   const { data } = supabaseAdmin.storage.from("stickers").getPublicUrl(path);
   return data.publicUrl;
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const m = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  if (!m) throw new Error("Bad image data");
+  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  return new File([bytes], filename, { type: m[1] });
+}
+
+async function arrayBufferToBase64(buf: ArrayBuffer): Promise<string> {
+  if (typeof Buffer !== "undefined") return Buffer.from(buf).toString("base64");
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 // ----- GEMINI (via Lovable AI Gateway by default; direct via GEMINI_API_KEY if set) -----
@@ -81,34 +96,42 @@ async function callGemini(opts: GenerateOpts): Promise<{ dataUrl: string; model:
   return { dataUrl, model };
 }
 
-// ----- OPENAI (direct via OPENAI_API_KEY; fallback to Lovable Gateway with LOVABLE_API_KEY) -----
+// ----- OPENAI (direct via OPENAI_API_KEY) -----
 async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model: string }> {
-  const direct = !!process.env.OPENAI_API_KEY;
-  const apiKey = process.env.OPENAI_API_KEY || process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY/LOVABLE_API_KEY ausente");
-  const model = direct ? "gpt-image-1" : "openai/gpt-image-2";
-  const endpoint = direct
-    ? "https://api.openai.com/v1/images/generations"
-    : "https://ai.gateway.lovable.dev/v1/images/generations";
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY ausente");
+  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini";
+  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
+  const quality = ["low", "medium", "high", "auto"].includes(requestedQuality)
+    ? requestedQuality
+    : "medium";
+  const form = new FormData();
+  form.append("model", model);
+  form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
+  form.append("prompt", opts.prompt);
+  form.append("size", "1024x1536");
+  form.append("quality", quality);
+  form.append("output_format", "png");
+  form.append("n", "1");
 
-  // OpenAI images/generations não aceita imagem de referência neste endpoint;
-  // usamos o prompt sozinho. Para manter o rosto, o prompt já é descritivo.
-  const res = await fetch(endpoint, {
+  const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      prompt: opts.prompt,
-      size: "1024x1024",
-      n: 1,
-      ...(direct ? {} : { quality: "high" }),
-    }),
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const json = await res.json();
   const b64 = json?.data?.[0]?.b64_json;
-  if (!b64) throw new Error("OpenAI: sem imagem na resposta");
-  return { dataUrl: `data:image/png;base64,${b64}`, model };
+  if (b64) return { dataUrl: `data:image/png;base64,${b64}`, model };
+  const url = json?.data?.[0]?.url;
+  if (typeof url === "string") {
+    const image = await fetch(url);
+    if (!image.ok) throw new Error(`OpenAI: falha ao baixar imagem (${image.status})`);
+    const contentType = image.headers.get("content-type") || "image/png";
+    const base64 = await arrayBufferToBase64(await image.arrayBuffer());
+    return { dataUrl: `data:${contentType};base64,${base64}`, model };
+  }
+  throw new Error("OpenAI: sem imagem na resposta");
 }
 
 async function callProvider(provider: ProviderName, opts: GenerateOpts) {

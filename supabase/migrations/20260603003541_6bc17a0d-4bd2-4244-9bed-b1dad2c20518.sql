@@ -1,7 +1,7 @@
 
 ALTER TABLE public.app_settings
-  ADD COLUMN IF NOT EXISTS ai_provider text NOT NULL DEFAULT 'GEMINI',
-  ADD COLUMN IF NOT EXISTS ai_fallback boolean NOT NULL DEFAULT true;
+  ADD COLUMN IF NOT EXISTS ai_provider text NOT NULL DEFAULT 'OPENAI',
+  ADD COLUMN IF NOT EXISTS ai_fallback boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS public.ai_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
