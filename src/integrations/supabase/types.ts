@@ -14,20 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          fallback_used: boolean
+          id: string
+          model: string | null
+          provider: string
+          sticker_id: string | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          fallback_used?: boolean
+          id?: string
+          model?: string | null
+          provider: string
+          sticker_id?: string | null
+          success?: boolean
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          fallback_used?: boolean
+          id?: string
+          model?: string | null
+          provider?: string
+          sticker_id?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
+          ai_fallback: boolean
+          ai_provider: string
           id: boolean
           price_centavos: number
           updated_at: string
           webhook_secret: string | null
         }
         Insert: {
+          ai_fallback?: boolean
+          ai_provider?: string
           id?: boolean
           price_centavos?: number
           updated_at?: string
           webhook_secret?: string | null
         }
         Update: {
+          ai_fallback?: boolean
+          ai_provider?: string
           id?: boolean
           price_centavos?: number
           updated_at?: string
