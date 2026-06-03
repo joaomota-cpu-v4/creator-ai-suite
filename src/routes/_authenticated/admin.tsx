@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { adminListOrders, adminStats, claimAdmin, isAdmin } from "@/lib/admin.functions";
 import { adminListPlans, upsertPlan, deletePlan } from "@/lib/plans.functions";
 import { listWebhookLogs, resendWebhook, resendAllFailed, testWebhook } from "@/lib/webhooks.functions";
+import { getAiStatus, setAiProvider, listAiLogs } from "@/lib/ai.functions";
 import { formatBRL } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
