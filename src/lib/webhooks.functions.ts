@@ -76,6 +76,7 @@ export const resendAllFailed = createServerFn({ method: "POST" })
 
 export const testWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d ?? {}))
   .handler(async ({ context }) => {
     await ensureAdmin(context.userId);
     const url = process.env.WEBHOOK_URL;
