@@ -272,7 +272,7 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
         )}
 
         {form.foto_base64 && (
-          <div className="absolute left-1/2 top-[46%] z-[6] -translate-x-1/2 -rotate-[10deg] rounded-full border border-white/50 bg-white/25 px-7 py-2 text-center text-[14px] font-black uppercase tracking-[.12em] text-white shadow-md backdrop-blur-[8px]">
+          <div className="absolute left-1/2 top-[46%] z-[6] -translate-x-1/2 -rotate-[10deg] rounded-full border border-white/50 bg-white/25 px-10 py-3 text-center text-[20px] font-black uppercase tracking-[.14em] text-white shadow-lg backdrop-blur-[8px]">
             PREVIA
           </div>
         )}
