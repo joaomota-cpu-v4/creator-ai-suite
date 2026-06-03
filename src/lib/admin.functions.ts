@@ -14,12 +14,19 @@ export const adminListOrders = createServerFn({ method: "GET" })
     await ensureAdmin(context.userId);
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("id, status, metodo, valor_centavos, created_at, updated_at, delivered_at, asaas_payment_id, sticker_id, nome, email, telefone, cpf, quantity, plans(name, slug), stickers(nome, email, figurinha_url, status)")
+      .select("id, status, metodo, valor_centavos, created_at, updated_at, delivered_at, asaas_payment_id, sticker_id, plan_id, nome, email, telefone, cpf, quantity")
       .order("created_at", { ascending: false })
       .limit(1000);
     if (error) throw new Error(error.message);
 
     const orderIds = (data || []).map((o) => o.id);
+    const planIds = Array.from(new Set((data || []).map((o) => o.plan_id).filter(Boolean)));
+    const { data: planRows } = planIds.length
+      ? await supabaseAdmin
+          .from("plans")
+          .select("id, name, slug")
+          .in("id", planIds)
+      : { data: [] };
     const { data: stickerRows } = orderIds.length
       ? await supabaseAdmin
           .from("stickers")
@@ -35,14 +42,16 @@ export const adminListOrders = createServerFn({ method: "GET" })
       list.push(sticker);
       stickersByOrder.set(sticker.order_id, list);
     }
+    const plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
 
     return (data || []).map((order) => {
       const stickerList = stickersByOrder.get(order.id) || [];
       return {
         ...order,
+        plans: order.plan_id ? plansById.get(order.plan_id) || null : null,
         sticker_list: stickerList,
         sticker_count: stickerList.length,
-        first_sticker: stickerList[0] || order.stickers || null,
+        first_sticker: stickerList[0] || null,
       };
     });
   });
