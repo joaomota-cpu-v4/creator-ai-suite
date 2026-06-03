@@ -93,7 +93,7 @@ export type Database = {
           plan_id: string | null
           quantity: number
           status: Database["public"]["Enums"]["order_status"]
-          sticker_id: string
+          sticker_id: string | null
           telefone: string | null
           updated_at: string
           valor_centavos: number
@@ -113,7 +113,7 @@ export type Database = {
           plan_id?: string | null
           quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
-          sticker_id: string
+          sticker_id?: string | null
           telefone?: string | null
           updated_at?: string
           valor_centavos?: number
@@ -133,7 +133,7 @@ export type Database = {
           plan_id?: string | null
           quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
-          sticker_id?: string
+          sticker_id?: string | null
           telefone?: string | null
           updated_at?: string
           valor_centavos?: number
@@ -144,13 +144,6 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_sticker_id_fkey"
-            columns: ["sticker_id"]
-            isOneToOne: false
-            referencedRelation: "stickers"
             referencedColumns: ["id"]
           },
         ]
