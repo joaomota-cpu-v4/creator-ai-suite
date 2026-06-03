@@ -220,12 +220,20 @@ function escapeXml(value: string | number | null | undefined) {
     .replace(/'/g, "&apos;");
 }
 
-async function uploadFinalStickerSvg(stickerId: string, svg: string) {
-  const bytes = new TextEncoder().encode(svg);
-  const path = `${stickerId}/figurinha.svg`;
+async function fetchImageAsDataUrl(url: string) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Falha ao baixar retrato gerado (${res.status})`);
+  const contentType = res.headers.get("content-type") || "image/png";
+  return bufferToDataUrl(await res.arrayBuffer(), contentType);
+}
+
+async function uploadFinalStickerPng(stickerId: string, svg: string) {
+  const sharp = (await import(/* @vite-ignore */ "sharp")).default;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const path = `${stickerId}/figurinha.png`;
   const { error } = await supabaseAdmin.storage
     .from("stickers")
-    .upload(path, bytes, { contentType: "image/svg+xml", upsert: true });
+    .upload(path, png, { contentType: "image/png", upsert: true });
   if (error) throw new Error(error.message);
   const { data } = supabaseAdmin.storage.from("stickers").getPublicUrl(path);
   return data.publicUrl;
@@ -239,6 +247,7 @@ async function composeFinalStickerSvg(input: {
   clube: string;
 }) {
   const backgroundHref = await getStickerBackgroundHref();
+  const portraitHref = await fetchImageAsDataUrl(input.portraitUrl);
   const bg = backgroundHref
     ? `<image href="${escapeXml(backgroundHref)}" x="0" y="0" width="608" height="820" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect width="608" height="820" fill="#58C7CF"/>`;
@@ -252,7 +261,7 @@ async function composeFinalStickerSvg(input: {
   <g clip-path="url(#cardClip)">
     ${bg}
     <g clip-path="url(#playerClip)" filter="url(#softShadow)">
-      <image href="${escapeXml(input.portraitUrl)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
+      <image href="${escapeXml(portraitHref)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
     </g>
     <rect x="30" y="681" width="548" height="75" rx="22" fill="#1C8C93"/>
     <text x="54" y="720" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="900">${escapeXml(input.nome)}</text>
@@ -262,7 +271,7 @@ async function composeFinalStickerSvg(input: {
   </g>
 </svg>`;
 
-  return uploadFinalStickerSvg(input.stickerId, svg);
+  return uploadFinalStickerPng(input.stickerId, svg);
 }
 
 export async function generateStickerImageForRow(stickerId: string, status: "generated" | "paid" = "generated") {
