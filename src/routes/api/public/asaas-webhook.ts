@@ -23,13 +23,21 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         if (!event || !payment?.id) return new Response("ignored", { status: 200 });
 
         const paid = ["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_RECEIVED_IN_CASH"].includes(event);
-        const failed = ["PAYMENT_REFUNDED", "PAYMENT_DELETED", "PAYMENT_REFUND_DENIED", "PAYMENT_CHARGEBACK_REQUESTED"].includes(event);
-        const newStatus = paid ? "CONFIRMED" : failed ? "FAILED" : null;
+        const refunded = event === "PAYMENT_REFUNDED";
+        const failed = ["PAYMENT_DELETED", "PAYMENT_OVERDUE", "PAYMENT_REFUND_DENIED", "PAYMENT_CHARGEBACK_REQUESTED"].includes(event);
+        const newStatus = paid ? "CONFIRMED" : refunded ? "REFUNDED" : failed ? "FAILED" : null;
         if (!newStatus) return new Response("ok", { status: 200 });
+
+        console.log("[asaas-webhook] recebido", {
+          event,
+          paymentId: payment.id,
+          externalReference: payment.externalReference,
+          newStatus,
+        });
 
         let { data: order } = await supabaseAdmin
           .from("orders")
-          .update({ status: newStatus })
+          .update({ status: newStatus, asaas_payment_id: payment.id })
           .eq("asaas_payment_id", payment.id)
           .select("id")
           .maybeSingle();

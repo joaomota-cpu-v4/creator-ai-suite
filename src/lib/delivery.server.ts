@@ -28,10 +28,17 @@ export async function deliverOrder(orderId: string) {
 
   const payload = buildDeliveryPayload(order, plan, stickers || []);
 
-  await sendWebhook(orderId, payload);
+  const webhookResult = await sendWebhook(orderId, payload);
   await sendEmail(order, plan, stickers || []);
-  await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
-    .eq("id", orderId).is("delivered_at", null);
+  if (webhookResult.ok || webhookResult.skipped) {
+    await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
+      .eq("id", orderId).is("delivered_at", null);
+  } else {
+    console.warn("[delivery] webhook falhou, entrega permanece pendente", {
+      orderId,
+      status: webhookResult.status,
+    });
+  }
 }
 
 function getPublicBaseUrl() {

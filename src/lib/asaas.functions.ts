@@ -58,6 +58,22 @@ const CheckoutInput = z.object({
   }).optional(),
 }).refine((d) => d.order_id || d.sticker_id, { message: "order_id ou sticker_id obrigatório" });
 
+function mapAsaasPaymentStatus(status?: string): "PENDING" | "CONFIRMED" | "FAILED" | "REFUNDED" {
+  if (status === "CONFIRMED" || status === "RECEIVED" || status === "RECEIVED_IN_CASH") return "CONFIRMED";
+  if (status === "REFUNDED") return "REFUNDED";
+  if (["DELETED", "CANCELLED", "OVERDUE", "CHARGEBACK_REQUESTED", "REFUND_DENIED"].includes(status || "")) return "FAILED";
+  return "PENDING";
+}
+
+function hasValidCard(card: z.infer<typeof CheckoutInput>["card"]) {
+  return !!card
+    && card.holderName.trim().length >= 2
+    && card.number.replace(/\D/g, "").length >= 13
+    && card.expiryMonth.replace(/\D/g, "").length >= 1
+    && card.expiryYear.replace(/\D/g, "").length >= 2
+    && card.ccv.replace(/\D/g, "").length >= 3;
+}
+
 export const createAsaasPayment = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data }) => {
@@ -66,15 +82,37 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     if (cpfClean.length !== 11 && cpfClean.length !== 14) {
       throw new Error("CPF inválido. Digite 11 dígitos.");
     }
+    if (data.metodo === "CREDIT_CARD" && !hasValidCard(data.card)) {
+      throw new Error("Preencha todos os dados do cartão.");
+    }
 
     const orderId = data.order_id || (await resolveOrderId(data.sticker_id!));
     if (!orderId) throw new Error("Pedido não encontrado");
 
     const { data: order } = await supabaseAdmin
-      .from("orders").select("id, status, sticker_id, plan_id, quantity, valor_centavos").eq("id", orderId).maybeSingle();
+      .from("orders")
+      .select("id, status, sticker_id, plan_id, quantity, valor_centavos, metodo, asaas_payment_id, pix_qr_code, pix_copy_paste, invoice_url")
+      .eq("id", orderId)
+      .maybeSingle();
     if (!order) throw new Error("Pedido não encontrado");
     if (order.status === "CONFIRMED") {
       return { orderId: order.id, status: "CONFIRMED", pixQr: null, pixCopy: null, invoiceUrl: null };
+    }
+    if (
+      data.metodo === "PIX"
+      && order.status === "PENDING"
+      && order.metodo === "PIX"
+      && order.asaas_payment_id
+      && (order.pix_qr_code || order.pix_copy_paste || order.invoice_url)
+    ) {
+      console.log("[pagamento] reutilizando PIX pendente", { orderId: order.id, paymentId: order.asaas_payment_id });
+      return {
+        orderId: order.id,
+        status: "PENDING",
+        pixQr: order.pix_qr_code,
+        pixCopy: order.pix_copy_paste,
+        invoiceUrl: order.invoice_url,
+      };
     }
 
     // valor vem do pedido (que foi setado pelo plano)
@@ -129,7 +167,15 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       }
     }
 
-    const status = payment.status === "CONFIRMED" || payment.status === "RECEIVED" ? "CONFIRMED" : "PENDING";
+    const status = mapAsaasPaymentStatus(payment.status);
+    console.log("[pagamento] criado", {
+      orderId: order.id,
+      paymentId: payment.id,
+      metodo: data.metodo,
+      asaasStatus: payment.status,
+      status,
+      value: priceReais,
+    });
 
     const { error } = await supabaseAdmin.from("orders").update({
       asaas_payment_id: payment.id,
@@ -166,7 +212,8 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
 
     try {
       const p = await asaas(`/payments/${order.asaas_payment_id}`);
-      if (p.status === "CONFIRMED" || p.status === "RECEIVED") {
+      const status = mapAsaasPaymentStatus(p.status);
+      if (status === "CONFIRMED") {
         const { data: updated } = await supabaseAdmin
           .from("orders").update({ status: "CONFIRMED" })
           .eq("id", order.id).eq("status", "PENDING").select().maybeSingle();
@@ -177,6 +224,14 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
         }
         return { status: "CONFIRMED" };
+      }
+      if (status === "FAILED" || status === "REFUNDED") {
+        await supabaseAdmin
+          .from("orders")
+          .update({ status })
+          .eq("id", order.id)
+          .eq("status", "PENDING");
+        return { status };
       }
     } catch (e) {
       console.error("checkOrderStatus failed", e);

@@ -110,7 +110,7 @@ function Admin() {
                             {hasGenerated ? `${stickerLinks.length} gerada(s)` : "Sem imagem final"}
                           </div>
                           <div className={delivered ? "text-copa-green" : "text-muted-foreground"}>
-                            {delivered ? `Enviada ${new Date(o.delivered_at).toLocaleString("pt-BR")}` : "Entrega nao registrada"}
+                            {delivered ? `Entrega registrada ${new Date(o.delivered_at).toLocaleString("pt-BR")}` : paid ? "Webhook/entrega pendente" : "Entrega nao registrada"}
                           </div>
                           <div className={hasGenerated ? "text-copa-green" : "text-muted-foreground"}>
                             {hasGenerated ? "Download disponivel" : "Download indisponivel"}

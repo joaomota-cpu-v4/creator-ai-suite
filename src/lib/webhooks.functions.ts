@@ -15,13 +15,26 @@ export const listWebhookLogs = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.userId);
     let q = supabaseAdmin.from("webhook_logs")
-      .select("id, order_id, event_type, webhook_url, response_status, success, attempts, last_attempt_at, created_at, orders(nome, email)")
+      .select("id, order_id, event_type, webhook_url, response_status, success, attempts, last_attempt_at, created_at")
       .order("created_at", { ascending: false }).limit(200);
     if (data.filter === "success") q = q.eq("success", true);
     if (data.filter === "failed") q = q.eq("success", false);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows || [];
+
+    const orderIds = Array.from(new Set((rows || []).map((row) => row.order_id).filter(Boolean) as string[]));
+    const { data: orders } = orderIds.length
+      ? await supabaseAdmin
+          .from("orders")
+          .select("id, nome, email")
+          .in("id", orderIds)
+      : { data: [] };
+    const ordersById = new Map((orders || []).map((order) => [order.id, order]));
+
+    return (rows || []).map((row) => ({
+      ...row,
+      orders: row.order_id ? ordersById.get(row.order_id) || null : null,
+    }));
   });
 
 export const resendWebhook = createServerFn({ method: "POST" })
@@ -57,9 +70,26 @@ export const resendAllFailed = createServerFn({ method: "POST" })
     let ok = 0, fail = 0;
     for (const oid of uniq) {
       try {
-        const r = await deliverOrder(oid).catch(() => null);
-        ok++; void r;
-      } catch { fail++; }
+        const { data: order } = await supabaseAdmin
+          .from("orders").select("*").eq("id", oid).maybeSingle();
+        if (!order) {
+          fail++;
+          continue;
+        }
+        const { data: stickers } = await supabaseAdmin
+          .from("stickers")
+          .select("id, nome, email, status, figurinha_url, preview_url")
+          .eq("order_id", oid);
+        const { data: plan } = order.plan_id
+          ? await supabaseAdmin.from("plans").select("name, slug, quantity").eq("id", order.plan_id).maybeSingle()
+          : { data: null };
+        const payload = buildDeliveryPayload(order, plan, stickers || [], "manual_resend_failed");
+        const result = await sendWebhook(oid, payload);
+        if (result.ok) ok++;
+        else fail++;
+      } catch {
+        fail++;
+      }
     }
     return { tried: uniq.length, ok, fail };
   });

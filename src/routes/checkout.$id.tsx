@@ -55,6 +55,15 @@ function Checkout() {
 
   const submit = async () => {
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
+    if (metodo === "CREDIT_CARD") {
+      const cardOk =
+        f.holderName.trim().length >= 2
+        && f.number.replace(/\D/g, "").length >= 13
+        && f.expiryMonth.replace(/\D/g, "").length >= 1
+        && f.expiryYear.replace(/\D/g, "").length >= 2
+        && f.ccv.replace(/\D/g, "").length >= 3;
+      if (!cardOk) return toast.error("Preencha todos os dados do cartao");
+    }
     setLoading(true);
     try {
       fbqTrack("AddPaymentInfo", {
