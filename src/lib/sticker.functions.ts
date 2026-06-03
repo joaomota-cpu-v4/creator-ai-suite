@@ -103,41 +103,46 @@ export const createSticker = createServerFn({ method: "POST" })
     return { id: stickerId };
   });
 
-async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
+async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
   const nascimento = data_nascimento
-    ? new Date(data_nascimento).toLocaleDateString("pt-BR")
-    : "—";
-  const altura = altura_cm ? `${(altura_cm / 100).toFixed(2).replace(".", ",")} m` : "—";
-  const peso = peso_kg ? `${peso_kg} kg` : "—";
+    ? new Date(data_nascimento).toLocaleDateString("pt-BR").replace(/\//g, "-")
+    : "-";
+  const altura = altura_cm ? `${(altura_cm / 100).toFixed(2).replace(".", ",")}m` : "-";
+  const peso = peso_kg ? `${peso_kg}kg` : "-";
   const nomeUpper = nome.toUpperCase();
+  const clubeUpper = (clube || "BRASIL").toUpperCase();
 
-  const prompt = `Create a premium photorealistic Brazilian football collectible trading card using the uploaded reference photo.
+  const prompt = `Create a premium modern football album collectible card, vertical 2:3 format, using the uploaded reference photo as the athlete portrait.
 
-REFERENCE PHOTO:
+PORTRAIT:
+- Keep one centered athlete only, smiling naturally, looking directly at the camera.
 - Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
-- Keep the person looking natural and age-appropriate.
-- Do not cartoonize, anime-style, caricature, or heavily repaint the person. Use photographic lighting and realistic retouching only.
+- Use realistic studio photography, soft even lighting, sharp focus, natural skin texture and professional retouching.
+- Do not cartoonize, caricature, repaint, distort, age-change, or alter the identity.
 
 WARDROBE:
-- Dress the person in a yellow Brazil-inspired football jersey with green collar/trim and a generic shield-style crest. Realistic fabric texture, natural folds, photographic lighting on the shirt.
+- Yellow Brazil-inspired football jersey with green collar and sleeve details, realistic athletic fabric and a clean generic shield crest on the chest.
+- Avoid malformed badges, fake brand marks, random letters, extra logos, or messy symbols.
 
-BACKGROUND / SCENE:
-- Vibrant Brazil-themed background behind the person: green and yellow paint brush strokes, confetti in green/yellow/blue, soft blurred football stadium with stadium lights and crowd bokeh, cinematic but natural lighting on the face.
+BACKGROUND:
+- Vibrant turquoise-blue sports background with huge layered numbers "23" behind the athlete in green and yellow.
+- Add depth with clean modern graphic shapes, subtle shadows, and a right-side vertical transparent "BRA" text element.
+- Add a small Brazil flag icon on the right side. Keep the background clean, not crowded.
+- Top right: simple white "FIFA" style wordmark only if it is crisp and readable; otherwise use a clean white football tournament mark.
 
-CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
-- Thick glossy METALLIC GOLD border framing the whole card, slightly rounded corners, subtle holographic shine in the corners.
-- TOP LEFT: small green and yellow generic football shield with 5 gold stars above it and a soccer ball icon inside.
-- TOP RIGHT: small white rounded badge with green text reading "26 / COPA / 2026" stacked on three lines.
-- BOTTOM CENTER: dark blue ribbon banner with thin gold outline containing the player name "${nomeUpper}" in bold white italic display sports typography with subtle shadow.
-- Directly under the banner: small yellow text "★ ATACANTE ★".
-- BOTTOM STRIP: a yellow/gold gradient info bar with three small icon+label groups in dark navy text, evenly spaced:
-  1) calendar icon + "${nascimento}" / "NASCIMENTO"
-  2) height-ruler icon + "${altura}" / "ALTURA"
-  3) weight icon + "${peso}" / "PESO"
-  Text must be crisp, legible and spelled exactly as written.
+CARD DESIGN:
+- Premium official-looking football card, contemporary sports graphic design, high-quality print finish.
+- Rounded card corners, subtle glossy finish, clean margins, no clutter.
+- Bottom: rounded teal-blue name bar with the exact player name in uppercase white letters:
+  "${nomeUpper}"
+- Under the name, render this exact stats line in a modern sports font:
+  "${nascimento} | ${altura} | ${peso}"
+- At the very bottom, add a smaller clean strip with the exact club text:
+  "${clubeUpper}"
 
-STYLE:
-- Photorealistic, sharp focus, 4K detail, vibrant saturated colors, glossy premium trading-card finish, lens flares and confetti sparkles. NO cartoon, NO illustration, NO painting — fully photographic for the person, with graphic card overlays on top.`;
+QUALITY RULES:
+- Text must be crisp, readable, centered, and spelled exactly as provided.
+- Keep hands out of frame if possible. Avoid distorted face, crossed eyes, extra people, bad anatomy, blurry image, pixelation, noisy background, cut-off head, broken logos, illegible text, random words, watermark, or amateur layout.`;
 
   const result = await aiGenerateSticker({ prompt, imageDataUrl: foto_base64, stickerId });
   return result.publicUrl;
