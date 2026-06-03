@@ -245,29 +245,19 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
 
   return (
     <aside className="mx-auto w-full max-w-[420px]" aria-label="Preview da figurinha">
-      <div className="relative aspect-[608/820] overflow-hidden rounded-[24px] bg-[#58C7CF] bg-[radial-gradient(circle_at_18%_16%,rgba(255,255,255,.22),transparent_18%),radial-gradient(circle_at_88%_28%,rgba(0,166,62,.18),transparent_22%),linear-gradient(160deg,rgba(255,255,255,.16)_0%,rgba(88,199,207,0)_36%,rgba(0,88,132,.16)_100%)]">
-        <div className="absolute -left-[10%] top-[14%] z-[1] h-[38%] w-[120%] rounded-[50%] border-[18px] border-white/10" />
-        <div className="absolute left-[52%] top-[9%] z-[1] h-[72%] w-[54%] -rotate-12 rounded-full border border-white/15" />
-        <div className="absolute bottom-[20%] left-[-18%] z-[1] h-[34%] w-[64%] rounded-full bg-[#00A63E]/10" />
-        <div className="absolute right-[-14%] top-[42%] z-[1] h-[26%] w-[46%] rounded-full bg-white/10" />
-
-        <div className="absolute left-[4.1%] top-[3.7%] z-[2] select-none text-[clamp(212px,67vw,286px)] font-black leading-[.78] text-[#00A63E]/75 blur-[1px]">
-          2<span className="text-[#FFD400]">3</span>
-        </div>
-
-        <div className="absolute right-[4.6%] top-[3.4%] z-[7]">
-          <img
-            src="/assets/world-cup-logo.svg"
-            alt="World Cup"
-            className="h-[clamp(62px,18vw,90px)] w-auto object-contain drop-shadow-md"
-          />
-        </div>
+      <div className="relative aspect-[608/820] overflow-hidden rounded-[24px] bg-[#58C7CF]">
+        <img
+          src="/assets/sticker-preview-bg.svg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 z-[1] h-full w-full object-cover"
+        />
 
         {form.foto_base64 ? (
           <img
             src={form.foto_base64}
             alt="Previa bloqueada do jogador"
-            className="absolute left-1/2 top-[7.5%] z-[4] h-[78%] w-[92%] -translate-x-1/2 scale-[1.08] object-cover object-top blur-[7px] saturate-95"
+            className="absolute left-1/2 top-[8%] z-[2] h-[76%] w-[88%] -translate-x-1/2 scale-[1.08] object-cover object-top opacity-80 blur-[7px] saturate-95"
             style={{
               WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 9%, black 91%, transparent 100%), linear-gradient(180deg, black 0%, black 88%, transparent 100%)",
               WebkitMaskComposite: "source-in",
@@ -286,14 +276,6 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
             PREVIA
           </div>
         )}
-
-        <div className="absolute right-[4%] top-[57%] z-[6] rounded-[12px] bg-white p-1 shadow-lg">
-          <img
-            src="/flags/brasil.svg"
-            alt="Brasil"
-            className="h-[40px] w-[60px] rounded-[6px] object-cover"
-          />
-        </div>
 
         <div className="absolute bottom-[64px] left-1/2 z-[5] h-[75px] w-[90%] -translate-x-1/2 rounded-[22px] bg-[#1C8C93] px-6 py-3 text-white shadow-xl">
           <div className="truncate text-[30px] font-black uppercase leading-none md:text-[36px]">{name}</div>
