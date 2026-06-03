@@ -220,16 +220,16 @@ function escapeXml(value: string | number | null | undefined) {
     .replace(/'/g, "&apos;");
 }
 
-async function fetchImageAsDataUrl(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Falha ao baixar retrato gerado (${res.status})`);
-  const contentType = res.headers.get("content-type") || "image/png";
-  return bufferToDataUrl(await res.arrayBuffer(), contentType);
+const transparentPngDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+
+async function renderSvgToPngBuffer(svg: string) {
+  const sharp = (await import(/* @vite-ignore */ "sharp")).default;
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 async function uploadFinalStickerPng(stickerId: string, svg: string) {
-  const sharp = (await import(/* @vite-ignore */ "sharp")).default;
-  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const png = await renderSvgToPngBuffer(svg);
   const path = `${stickerId}/figurinha.png`;
   const { error } = await supabaseAdmin.storage
     .from("stickers")
@@ -239,20 +239,18 @@ async function uploadFinalStickerPng(stickerId: string, svg: string) {
   return data.publicUrl;
 }
 
-async function composeFinalStickerSvg(input: {
-  stickerId: string;
-  portraitUrl: string;
+function buildFinalStickerSvg(input: {
+  backgroundHref: string | null;
+  portraitHref: string;
   nome: string;
   stats: string;
   clube: string;
 }) {
-  const backgroundHref = await getStickerBackgroundHref();
-  const portraitHref = await fetchImageAsDataUrl(input.portraitUrl);
-  const bg = backgroundHref
-    ? `<image href="${escapeXml(backgroundHref)}" x="0" y="0" width="608" height="820" preserveAspectRatio="xMidYMid slice"/>`
+  const bg = input.backgroundHref
+    ? `<image href="${escapeXml(input.backgroundHref)}" x="0" y="0" width="608" height="820" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect width="608" height="820" fill="#58C7CF"/>`;
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="608" height="820" viewBox="0 0 608 820">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="608" height="820" viewBox="0 0 608 820">
   <defs>
     <clipPath id="cardClip"><rect width="608" height="820" rx="24" ry="24"/></clipPath>
     <clipPath id="playerClip"><path d="M54 46 H554 V690 H54 Z"/></clipPath>
@@ -261,7 +259,7 @@ async function composeFinalStickerSvg(input: {
   <g clip-path="url(#cardClip)">
     ${bg}
     <g clip-path="url(#playerClip)" filter="url(#softShadow)">
-      <image href="${escapeXml(portraitHref)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
+      <image href="${escapeXml(input.portraitHref)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
     </g>
     <rect x="30" y="681" width="548" height="75" rx="22" fill="#1C8C93"/>
     <text x="54" y="720" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="900">${escapeXml(input.nome)}</text>
@@ -270,7 +268,36 @@ async function composeFinalStickerSvg(input: {
     <text x="304" y="791" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing=".5">${escapeXml(input.clube)}</text>
   </g>
 </svg>`;
+}
 
+async function assertFinalStickerRendererWorks(input: { nome: string; stats: string; clube: string }) {
+  const backgroundHref = await getStickerBackgroundHref();
+  const svg = buildFinalStickerSvg({
+    backgroundHref,
+    portraitHref: transparentPngDataUrl,
+    nome: input.nome,
+    stats: input.stats,
+    clube: input.clube,
+  });
+  await renderSvgToPngBuffer(svg);
+  return backgroundHref;
+}
+
+async function composeFinalStickerPng(input: {
+  stickerId: string;
+  portraitDataUrl: string;
+  backgroundHref: string | null;
+  nome: string;
+  stats: string;
+  clube: string;
+}) {
+  const svg = buildFinalStickerSvg({
+    backgroundHref: input.backgroundHref,
+    portraitHref: input.portraitDataUrl,
+    nome: input.nome,
+    stats: input.stats,
+    clube: input.clube,
+  });
   return uploadFinalStickerPng(input.stickerId, svg);
 }
 
@@ -340,6 +367,11 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
   const clubeUpper = (clube || "BRASIL").toUpperCase();
 
   const stats = `${nascimento} | ${altura} | ${peso}`;
+  const backgroundHref = await assertFinalStickerRendererWorks({
+    nome: nomeUpper,
+    stats,
+    clube: clubeUpper,
+  });
 
   const prompt = `Create a photorealistic studio football portrait only.
 
@@ -377,9 +409,10 @@ QUALITY RULES:
     imageDataUrl: foto_base64,
     stickerId,
   });
-  return composeFinalStickerSvg({
+  return composeFinalStickerPng({
     stickerId,
-    portraitUrl: result.publicUrl,
+    portraitDataUrl: result.dataUrl,
+    backgroundHref,
     nome: nomeUpper,
     stats,
     clube: clubeUpper,

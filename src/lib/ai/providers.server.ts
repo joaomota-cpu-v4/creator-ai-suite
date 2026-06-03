@@ -15,6 +15,7 @@ export interface GenerateOpts {
 
 export interface GenerateResult {
   publicUrl: string;
+  dataUrl: string;
   provider: ProviderName;
   model: string;
   durationMs: number;
@@ -33,7 +34,7 @@ async function getConfiguredProvider(): Promise<{ provider: ProviderName; fallba
     const provider = p === "GEMINI" && geminiEnabled ? "GEMINI" : "OPENAI";
     return {
       provider,
-      fallback: geminiEnabled ? data?.ai_fallback ?? false : false,
+      fallback: process.env.ENABLE_AI_PROVIDER_FALLBACK === "true" && geminiEnabled ? data?.ai_fallback ?? false : false,
     };
   } catch {
     return { provider: "OPENAI", fallback: false };
@@ -188,7 +189,7 @@ export async function generateSticker(opts: GenerateOpts): Promise<GenerateResul
       const durationMs = Date.now() - start;
       console.log(`[AI] provider=${p} model=${model} ok in ${durationMs}ms fallback=${isFallback}`);
       await logAttempt({ sticker_id: opts.stickerId, provider: p, model, success: true, duration_ms: durationMs, fallback_used: isFallback });
-      return { publicUrl, provider: p, model, durationMs, fallbackUsed: isFallback };
+      return { publicUrl, dataUrl, provider: p, model, durationMs, fallbackUsed: isFallback };
     } catch (e: any) {
       const durationMs = Date.now() - start;
       const msg = e?.message || String(e);
