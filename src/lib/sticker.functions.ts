@@ -283,6 +283,18 @@ async function assertFinalStickerRendererWorks(input: { nome: string; stats: str
   return backgroundHref;
 }
 
+export async function renderStickerHealthPng() {
+  const backgroundHref = await getStickerBackgroundHref();
+  const svg = buildFinalStickerSvg({
+    backgroundHref,
+    portraitHref: transparentPngDataUrl,
+    nome: "TESTE",
+    stats: "Render PNG | sem IA",
+    clube: "CHECKOUT VISUAL",
+  });
+  return renderSvgToPngBuffer(svg);
+}
+
 async function composeFinalStickerPng(input: {
   stickerId: string;
   portraitDataUrl: string;
