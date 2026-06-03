@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { resolveOrderId } from "./order.functions";
 import { generateSticker as aiGenerateSticker } from "./ai/providers.server";
+import { initWasm, Resvg } from "@resvg/resvg-wasm";
 
 const CreateInput = z.object({
   order_id: z.string().uuid(),
@@ -223,9 +224,55 @@ function escapeXml(value: string | number | null | undefined) {
 const transparentPngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
+let resvgReady: Promise<void> | null = null;
+
+async function loadResvgWasm() {
+  const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
+  if (publicBase) {
+    try {
+      const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/resvg.wasm`);
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+      console.warn("[sticker] resvg.wasm public fetch failed", res.status, res.statusText);
+    } catch (e) {
+      console.warn("[sticker] resvg.wasm public fetch failed", e);
+    }
+  }
+
+  try {
+    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
+    const { join } = await import(/* @vite-ignore */ "node:path");
+    return readFile(join(process.cwd(), "public", "assets", "resvg.wasm"));
+  } catch (e) {
+    console.warn("[sticker] local public resvg.wasm unavailable", e);
+  }
+
+  const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
+  const { join } = await import(/* @vite-ignore */ "node:path");
+  return readFile(join(process.cwd(), "node_modules", "@resvg", "resvg-wasm", "index_bg.wasm"));
+}
+
+async function ensureResvgReady() {
+  if (!resvgReady) {
+    resvgReady = loadResvgWasm().then((wasm) => initWasm(wasm));
+  }
+  return resvgReady;
+}
+
 async function renderSvgToPngBuffer(svg: string) {
-  const sharp = (await import(/* @vite-ignore */ "sharp")).default;
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  await ensureResvgReady();
+  const renderer = new Resvg(svg, {
+    fitTo: { mode: "width", value: 608 },
+    font: {
+      loadSystemFonts: false,
+      defaultFontFamily: "Arial",
+      sansSerifFamily: "Arial",
+    },
+  });
+  try {
+    return renderer.render().asPng();
+  } finally {
+    renderer.free();
+  }
 }
 
 async function uploadFinalStickerPng(stickerId: string, svg: string) {

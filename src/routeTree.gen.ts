@@ -22,6 +22,7 @@ import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as CriarPlanoPlanSlugRouteImport } from './routes/criar.plano.$planSlug'
 import { Route as ApiZipOrderIdRouteImport } from './routes/api/zip.$orderId'
+import { Route as ApiPublicStickerRenderHealthRouteImport } from './routes/api/public/sticker-render-health'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 
 const PrePagoRoute = PrePagoRouteImport.update({
@@ -88,6 +89,12 @@ const ApiZipOrderIdRoute = ApiZipOrderIdRouteImport.update({
   path: '/api/zip/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicStickerRenderHealthRoute =
+  ApiPublicStickerRenderHealthRouteImport.update({
+    id: '/api/public/sticker-render-health',
+    path: '/api/public/sticker-render-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
   id: '/api/public/asaas-webhook',
   path: '/api/public/asaas-webhook',
@@ -106,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/sticker-render-health': typeof ApiPublicStickerRenderHealthRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
   '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
@@ -121,6 +129,7 @@ export interface FileRoutesByTo {
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/sticker-render-health': typeof ApiPublicStickerRenderHealthRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
   '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
@@ -138,6 +147,7 @@ export interface FileRoutesById {
   '/oferta/$id': typeof OfertaIdRoute
   '/sucesso/$id': typeof SucessoIdRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/sticker-render-health': typeof ApiPublicStickerRenderHealthRoute
   '/api/zip/$orderId': typeof ApiZipOrderIdRoute
   '/criar/plano/$planSlug': typeof CriarPlanoPlanSlugRoute
 }
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
+    | '/api/public/sticker-render-health'
     | '/api/zip/$orderId'
     | '/criar/plano/$planSlug'
   fileRoutesByTo: FileRoutesByTo
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
+    | '/api/public/sticker-render-health'
     | '/api/zip/$orderId'
     | '/criar/plano/$planSlug'
   id:
@@ -186,6 +198,7 @@ export interface FileRouteTypes {
     | '/oferta/$id'
     | '/sucesso/$id'
     | '/api/public/asaas-webhook'
+    | '/api/public/sticker-render-health'
     | '/api/zip/$orderId'
     | '/criar/plano/$planSlug'
   fileRoutesById: FileRoutesById
@@ -201,6 +214,7 @@ export interface RootRouteChildren {
   OfertaIdRoute: typeof OfertaIdRoute
   SucessoIdRoute: typeof SucessoIdRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
+  ApiPublicStickerRenderHealthRoute: typeof ApiPublicStickerRenderHealthRoute
   ApiZipOrderIdRoute: typeof ApiZipOrderIdRoute
 }
 
@@ -297,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiZipOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sticker-render-health': {
+      id: '/api/public/sticker-render-health'
+      path: '/api/public/sticker-render-health'
+      fullPath: '/api/public/sticker-render-health'
+      preLoaderRoute: typeof ApiPublicStickerRenderHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/asaas-webhook': {
       id: '/api/public/asaas-webhook'
       path: '/api/public/asaas-webhook'
@@ -342,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   OfertaIdRoute: OfertaIdRoute,
   SucessoIdRoute: SucessoIdRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
+  ApiPublicStickerRenderHealthRoute: ApiPublicStickerRenderHealthRoute,
   ApiZipOrderIdRoute: ApiZipOrderIdRoute,
 }
 export const routeTree = rootRouteImport
