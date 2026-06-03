@@ -97,6 +97,7 @@ function Admin() {
 
           <TabsContent value="planos"><PlanosEditor/></TabsContent>
           <TabsContent value="webhooks"><WebhooksPanel/></TabsContent>
+          <TabsContent value="ia"><IAPanel/></TabsContent>
         </Tabs>
       </div>
     </div>
