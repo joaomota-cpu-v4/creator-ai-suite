@@ -244,26 +244,46 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
   const club = (form.clube || "REAL MADRID CF (ESP)").toUpperCase();
 
   return (
-    <aside className="mx-auto w-full max-w-[420px]">
+    <aside className="mx-auto w-full max-w-[420px]" aria-label="Preview da figurinha">
       <div className="relative aspect-[608/820] overflow-hidden rounded-[24px] bg-[#58C7CF]">
-        <div className="absolute left-[4%] top-[4%] z-[1] w-[85%] text-[170px] font-black leading-[.78] text-[#00A63E] md:text-[230px]">
+        <div className="absolute left-[4.1%] top-[3.7%] z-[1] select-none text-[clamp(212px,67vw,286px)] font-black leading-[.78] text-[#00A63E]">
           2<span className="text-[#FFD400]">3</span>
         </div>
-        <div className="absolute right-[28px] top-[28px] z-[2] text-[54px] font-black leading-none text-white md:text-[68px]">FIFA</div>
-        <div className="absolute right-[-6px] top-[56%] z-[2] [writing-mode:vertical-rl] text-[76px] font-black leading-none text-transparent opacity-60 [-webkit-text-stroke:2px_rgba(255,255,255,.95)]">BRA</div>
 
-        <div className="absolute left-1/2 top-[80px] z-[3] h-[72%] w-[76%] -translate-x-1/2 overflow-visible">
-          {form.foto_base64 ? (
-            <img src={form.foto_base64} alt="Previa" className="h-full w-full object-cover object-top blur-[2px] saturate-90" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-center text-sm font-semibold text-primary/70">Envie uma foto</div>
-          )}
-          {form.foto_base64 && <div className="absolute inset-0 bg-[#58C7CF]/10" />}
+        <div className="absolute right-[4.6%] top-[3.4%] z-[5] select-none text-[clamp(52px,16vw,88px)] font-black leading-none text-white">
+          FIFA
+        </div>
+        <div className="absolute right-[-1.4%] top-[55%] z-[4] select-none [writing-mode:vertical-rl] text-[clamp(70px,19vw,96px)] font-black leading-none text-transparent opacity-60 [-webkit-text-stroke:2px_rgba(255,255,255,.95)]">
+          BRA
         </div>
 
-        <div className="absolute right-[24px] top-[57%] z-[4] flex h-[50px] w-[70px] items-center justify-center rounded-[8px] border-2 border-white/80 bg-[#009c3b]">
-          <div className="h-5 w-8 rotate-45 bg-[#ffdf00]" />
-          <div className="absolute h-3 w-3 rounded-full bg-[#002776]" />
+        {form.foto_base64 ? (
+          <img
+            src={form.foto_base64}
+            alt="Previa bloqueada do jogador"
+            className="absolute left-1/2 top-[7.5%] z-[3] h-[78%] w-[92%] -translate-x-1/2 scale-[1.08] object-cover object-top blur-[11px] saturate-95"
+            style={{
+              WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 9%, black 91%, transparent 100%), linear-gradient(180deg, black 0%, black 88%, transparent 100%)",
+              WebkitMaskComposite: "source-in",
+              maskImage: "linear-gradient(90deg, transparent 0%, black 9%, black 91%, transparent 100%), linear-gradient(180deg, black 0%, black 88%, transparent 100%)",
+              maskComposite: "intersect",
+            }}
+          />
+        ) : (
+          <div className="absolute left-1/2 top-[17%] z-[3] flex h-[48%] w-[76%] -translate-x-1/2 items-center justify-center text-center text-sm font-semibold text-primary/70">
+            Envie uma foto
+          </div>
+        )}
+
+        {form.foto_base64 && (
+          <div className="absolute left-1/2 top-[46%] z-[6] -translate-x-1/2 -rotate-[10deg] rounded-[16px] border border-white/35 bg-white/20 px-6 py-2 text-center text-[15px] font-black uppercase tracking-[.08em] text-white shadow-sm backdrop-blur-[6px]">
+            PREVIA
+          </div>
+        )}
+
+        <div className="absolute right-[4%] top-[57%] z-[6] flex h-[50px] w-[70px] items-center justify-center overflow-hidden rounded-[8px] border-2 border-white/80 bg-[#009c3b]">
+          <div className="h-[24px] w-[38px] rotate-45 bg-[#ffdf00]" />
+          <div className="absolute h-[16px] w-[16px] rounded-full bg-[#002776]" />
         </div>
 
         <div className="absolute bottom-[64px] left-1/2 z-[5] h-[75px] w-[90%] -translate-x-1/2 rounded-[22px] bg-[#1C8C93] px-6 py-3 text-white">
