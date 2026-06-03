@@ -59,13 +59,17 @@ export const createSticker = createServerFn({ method: "POST" })
     });
     if (insErr) throw new Error(insErr.message);
 
-    // Atualiza orders.sticker_id se ainda estiver com placeholder (compat com sucesso por sticker)
+    // Atualiza orders.sticker_id se ainda estiver vazio ou apontando pra algo inexistente
     const { data: cur } = await supabaseAdmin
       .from("orders").select("sticker_id").eq("id", data.order_id).maybeSingle();
     if (cur) {
-      const { data: existsAsSticker } = await supabaseAdmin
-        .from("stickers").select("id").eq("id", cur.sticker_id).maybeSingle();
-      if (!existsAsSticker) {
+      let needsUpdate = !cur.sticker_id;
+      if (cur.sticker_id) {
+        const { data: existsAsSticker } = await supabaseAdmin
+          .from("stickers").select("id").eq("id", cur.sticker_id).maybeSingle();
+        needsUpdate = !existsAsSticker;
+      }
+      if (needsUpdate) {
         await supabaseAdmin.from("orders").update({ sticker_id: stickerId }).eq("id", data.order_id);
       }
     }
