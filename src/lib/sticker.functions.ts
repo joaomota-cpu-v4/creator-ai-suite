@@ -107,22 +107,22 @@ async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento
   const peso = peso_kg ? `${peso_kg} kg` : "—";
   const nomeUpper = nome.toUpperCase();
 
-  const prompt = `Create a premium photorealistic Brazilian World Cup collectible trading card (Panini/FIFA style) using the uploaded photograph of the child.
+  const prompt = `Create a premium photorealistic Brazilian football collectible trading card using the uploaded reference photo.
 
-ABSOLUTE FACE RULE — most important:
-- Use the EXACT face from the uploaded photo. Same identity, same skin tone, same hair, same eyes, same smile, same age (a real child).
-- Do NOT illustrate, cartoonize, anime-fy, stylize or repaint the face. The face must remain a real photograph of the same person, only relit to match the scene.
-- If you change the face, the card is wrong.
+REFERENCE PHOTO:
+- Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
+- Keep the person looking natural and age-appropriate.
+- Do not cartoonize, anime-style, caricature, or heavily repaint the person. Use photographic lighting and realistic retouching only.
 
 WARDROBE:
-- Dress the child in the official yellow Brazil national team jersey (camisa amarela da Seleção Brasileira) with green collar/trim and CBF-style shield. Realistic fabric texture, natural folds, photographic lighting on the shirt.
+- Dress the person in a yellow Brazil-inspired football jersey with green collar/trim and a generic shield-style crest. Realistic fabric texture, natural folds, photographic lighting on the shirt.
 
 BACKGROUND / SCENE:
-- Vibrant Brazil-themed background behind the child: green and yellow paint brush strokes, confetti in green/yellow/blue, soft blurred football stadium with stadium lights and crowd bokeh, cinematic dramatic lighting on the face.
+- Vibrant Brazil-themed background behind the person: green and yellow paint brush strokes, confetti in green/yellow/blue, soft blurred football stadium with stadium lights and crowd bokeh, cinematic but natural lighting on the face.
 
 CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
 - Thick glossy METALLIC GOLD border framing the whole card, slightly rounded corners, subtle holographic shine in the corners.
-- TOP LEFT: small green & yellow CBF-style shield with 5 gold stars above it and a soccer ball icon inside.
+- TOP LEFT: small green and yellow generic football shield with 5 gold stars above it and a soccer ball icon inside.
 - TOP RIGHT: small white rounded badge with green text reading "26 / COPA / 2026" stacked on three lines.
 - BOTTOM CENTER: dark blue ribbon banner with thin gold outline containing the player name "${nomeUpper}" in bold white italic display sports typography with subtle shadow.
 - Directly under the banner: small yellow text "★ ATACANTE ★".
