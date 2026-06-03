@@ -26,6 +26,7 @@ function Admin() {
   const claim = useServerFn(claimAdmin);
   const listOrders = useServerFn(adminListOrders);
   const stats = useServerFn(adminStats);
+  const resendOrderWebhook = useServerFn(resendWebhook);
 
   const me = useQuery({ queryKey: ["isAdmin"], queryFn: () => check() });
   const orders = useQuery({ queryKey: ["adminOrders"], queryFn: () => listOrders(), enabled: me.data?.admin });
@@ -117,8 +118,26 @@ function Admin() {
                         </td>
                         <td className="p-3 font-semibold">{formatBRL(o.valor_centavos || 0)}</td>
                         <td className="p-3">
-                          {stickerLinks.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1">
+                            {paid && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    const result = await resendOrderWebhook({ data: { orderId: o.id } });
+                                    orders.refetch();
+                                    toast.success(result?.ok ? "Webhook reenviado" : "Webhook enviado com erro. Veja a aba Webhooks.");
+                                  } catch (e: any) {
+                                    toast.error(e.message || "Falha ao reenviar webhook");
+                                  }
+                                }}
+                              >
+                                <RefreshCw className="mr-1 h-3 w-3"/>Reenviar
+                              </Button>
+                            )}
+                            {stickerLinks.length > 0 ? (
+                              <>
                               {stickerLinks.map((s: any, index: number) => (
                                 <Button key={s.id} asChild size="sm" variant="outline">
                                   <a href={s.figurinha_url} target="_blank" rel="noreferrer" download>
@@ -126,10 +145,11 @@ function Admin() {
                                   </a>
                                 </Button>
                               ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Sem imagem</span>
-                          )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sem imagem</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
