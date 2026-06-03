@@ -8,6 +8,8 @@ import type { Database } from './types';
 function createSupabaseAdminClient() {
   const SUPABASE_URL =
     process.env.SUPABASE_URL ||
+    process.env.APP_SUPABASE_URL ||
+    process.env.LOVABLE_SUPABASE_URL ||
     process.env.VITE_SUPABASE_URL ||
     import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY =
