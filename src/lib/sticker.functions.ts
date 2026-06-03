@@ -92,9 +92,6 @@ export const createSticker = createServerFn({ method: "POST" })
   });
 
 async function generateFigurinha({ nome, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY missing from environment variables");
-
   const nascimento = data_nascimento
     ? new Date(data_nascimento).toLocaleDateString("pt-BR")
     : "—";
@@ -130,44 +127,8 @@ CARD LAYOUT (vertical, 3:4 aspect ratio, like classic Panini cards):
 STYLE:
 - Photorealistic, sharp focus, 4K detail, vibrant saturated colors, glossy premium trading-card finish, lens flares and confetti sparkles. NO cartoon, NO illustration, NO painting — fully photographic for the person, with graphic card overlays on top.`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content: [
-        { type: "text", text: prompt },
-        { type: "image_url", image_url: { url: foto_base64 } },
-      ]}],
-      modalities: ["image", "text"],
-    }),
-  });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`AI error ${res.status}: ${t}`);
-  }
-  const json = await res.json();
-  const parts = json?.choices?.[0]?.message?.images || json?.choices?.[0]?.message?.content;
-  let dataUrl: string | null = null;
-  if (Array.isArray(parts)) {
-    for (const p of parts) {
-      const u = p?.image_url?.url || p?.url;
-      if (typeof u === "string" && u.startsWith("data:image")) { dataUrl = u; break; }
-    }
-  }
-  if (!dataUrl) throw new Error("No image returned");
-
-  const m = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
-  if (!m) throw new Error("Bad image data");
-  const ext = m[1].split("/")[1] || "png";
-  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-  const outPath = `${stickerId}/figurinha.${ext}`;
-  const { error } = await supabaseAdmin.storage.from("stickers").upload(outPath, bytes, { contentType: m[1], upsert: true });
-  if (error) throw new Error(error.message);
-
-  const { data: pub } = supabaseAdmin.storage.from("stickers").getPublicUrl(outPath);
-  return pub.publicUrl;
+  const result = await aiGenerateSticker({ prompt, imageDataUrl: foto_base64, stickerId });
+  return result.publicUrl;
 }
 
 export const getStickerPublic = createServerFn({ method: "GET" })
