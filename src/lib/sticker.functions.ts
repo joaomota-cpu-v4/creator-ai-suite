@@ -103,6 +103,123 @@ export const createSticker = createServerFn({ method: "POST" })
     return { id: stickerId };
   });
 
+export const createStickerDraft = createServerFn({ method: "POST" })
+  .inputValidator((d) => CreateInput.parse(d))
+  .handler(async ({ data }) => {
+    const { data: order } = await supabaseAdmin
+      .from("orders").select("id, quantity, nome, email").eq("id", data.order_id).maybeSingle();
+    if (!order) throw new Error("Pedido não encontrado");
+
+    const { count } = await supabaseAdmin
+      .from("stickers").select("*", { count: "exact", head: true }).eq("order_id", data.order_id);
+    if ((count ?? 0) >= order.quantity) {
+      throw new Error(`Limite do plano atingido (${order.quantity} figurinha${order.quantity > 1 ? "s" : ""}).`);
+    }
+
+    const stickerId = crypto.randomUUID();
+    const match = data.foto_base64.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (!match) throw new Error("Foto inválida");
+    const mime = match[1];
+    const ext = mime.split("/")[1] || "png";
+    const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+    const path = `${stickerId}/original.${ext}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("user-photos")
+      .upload(path, bytes, { contentType: mime, upsert: true });
+    if (upErr) throw new Error(upErr.message);
+
+    const { error: insErr } = await supabaseAdmin.from("stickers").insert({
+      id: stickerId,
+      order_id: data.order_id,
+      nome: data.nome,
+      email: data.email,
+      data_nascimento: data.data_nascimento || null,
+      clube: data.clube || null,
+      peso_kg: data.peso_kg || null,
+      altura_cm: data.altura_cm || null,
+      foto_original_path: path,
+      status: "draft",
+    });
+    if (insErr) throw new Error(insErr.message);
+
+    const { data: cur } = await supabaseAdmin
+      .from("orders").select("sticker_id").eq("id", data.order_id).maybeSingle();
+    const orderPatch: Record<string, string> = {};
+    if (!cur?.sticker_id) orderPatch.sticker_id = stickerId;
+    if (!order.nome) orderPatch.nome = data.nome;
+    if (!order.email) orderPatch.email = data.email;
+    if (Object.keys(orderPatch).length > 0) {
+      await supabaseAdmin.from("orders").update(orderPatch).eq("id", data.order_id);
+    }
+
+    return { id: stickerId };
+  });
+
+async function blobToDataUrl(blob: Blob, fallbackMime = "image/jpeg") {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const base64 = typeof Buffer !== "undefined"
+    ? Buffer.from(bytes).toString("base64")
+    : btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(""));
+  return `data:${blob.type || fallbackMime};base64,${base64}`;
+}
+
+export async function generateStickerImageForRow(stickerId: string, status: "generated" | "paid" = "generated") {
+  const { data: sticker, error } = await supabaseAdmin
+    .from("stickers")
+    .select("id, nome, clube, data_nascimento, altura_cm, peso_kg, foto_original_path")
+    .eq("id", stickerId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!sticker) throw new Error("Figurinha não encontrada");
+  if (!sticker.foto_original_path) throw new Error("Foto original não encontrada");
+
+  const { data: photo, error: downloadError } = await supabaseAdmin.storage
+    .from("user-photos")
+    .download(sticker.foto_original_path);
+  if (downloadError || !photo) throw new Error(downloadError?.message || "Falha ao baixar foto original");
+
+  const figurinhaUrl = await generateFigurinha({
+    nome: sticker.nome,
+    clube: sticker.clube,
+    foto_base64: await blobToDataUrl(photo),
+    stickerId,
+    data_nascimento: sticker.data_nascimento,
+    altura_cm: sticker.altura_cm,
+    peso_kg: sticker.peso_kg,
+  });
+
+  await supabaseAdmin
+    .from("stickers")
+    .update({ figurinha_url: figurinhaUrl, preview_url: figurinhaUrl, status })
+    .eq("id", stickerId);
+
+  return figurinhaUrl;
+}
+
+export async function generateMissingStickersForOrder(orderId: string) {
+  const { data: order } = await supabaseAdmin
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) throw new Error("Pedido não encontrado");
+
+  const { data: stickers, error } = await supabaseAdmin
+    .from("stickers")
+    .select("id")
+    .eq("order_id", orderId)
+    .is("figurinha_url", null);
+  if (error) throw new Error(error.message);
+
+  const finalStatus = order.status === "CONFIRMED" ? "paid" : "generated";
+  for (const sticker of stickers || []) {
+    await generateStickerImageForRow(sticker.id, finalStatus);
+  }
+
+  return { generated: stickers?.length || 0 };
+}
+
 async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nascimento, altura_cm, peso_kg }: { nome: string; clube?: string | null; foto_base64: string; stickerId: string; data_nascimento?: string | null; altura_cm?: number | null; peso_kg?: number | null }) {
   const nascimento = data_nascimento
     ? new Date(data_nascimento).toLocaleDateString("pt-BR").replace(/\//g, "-")

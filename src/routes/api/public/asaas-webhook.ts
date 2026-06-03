@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverSticker } from "@/lib/delivery.server";
+import { generateMissingStickersForOrder } from "@/lib/sticker.functions";
 
 export const Route = createFileRoute("/api/public/asaas-webhook")({
   server: {
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           .maybeSingle();
 
         if (paid && order?.id) {
+          await generateMissingStickersForOrder(order.id);
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
           console.log("[webhook] pagamento confirmado", order.id);
           deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));

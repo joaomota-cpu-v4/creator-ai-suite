@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PrePagoRouteImport } from './routes/pre-pago'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CriarRouteImport } from './routes/criar'
@@ -23,6 +24,11 @@ import { Route as CriarPlanoPlanSlugRouteImport } from './routes/criar.plano.$pl
 import { Route as ApiZipOrderIdRouteImport } from './routes/api/zip.$orderId'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 
+const PrePagoRoute = PrePagoRouteImport.update({
+  id: '/pre-pago',
+  path: '/pre-pago',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlanosRoute = PlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
+  '/pre-pago': typeof PrePagoRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/criar/$orderId': typeof CriarOrderIdRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
+  '/pre-pago': typeof PrePagoRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/criar/$orderId': typeof CriarOrderIdRoute
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/criar': typeof CriarRouteWithChildren
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
+  '/pre-pago': typeof PrePagoRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/checkout/$id': typeof CheckoutIdRoute
   '/criar/$orderId': typeof CriarOrderIdRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/criar'
     | '/login'
     | '/planos'
+    | '/pre-pago'
     | '/admin'
     | '/checkout/$id'
     | '/criar/$orderId'
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/criar'
     | '/login'
     | '/planos'
+    | '/pre-pago'
     | '/admin'
     | '/checkout/$id'
     | '/criar/$orderId'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/criar'
     | '/login'
     | '/planos'
+    | '/pre-pago'
     | '/_authenticated/admin'
     | '/checkout/$id'
     | '/criar/$orderId'
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   CriarRoute: typeof CriarRouteWithChildren
   LoginRoute: typeof LoginRoute
   PlanosRoute: typeof PlanosRoute
+  PrePagoRoute: typeof PrePagoRoute
   CheckoutIdRoute: typeof CheckoutIdRoute
   OfertaIdRoute: typeof OfertaIdRoute
   SucessoIdRoute: typeof SucessoIdRoute
@@ -193,6 +206,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pre-pago': {
+      id: '/pre-pago'
+      path: '/pre-pago'
+      fullPath: '/pre-pago'
+      preLoaderRoute: typeof PrePagoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/planos': {
       id: '/planos'
       path: '/planos'
@@ -317,6 +337,7 @@ const rootRouteChildren: RootRouteChildren = {
   CriarRoute: CriarRouteWithChildren,
   LoginRoute: LoginRoute,
   PlanosRoute: PlanosRoute,
+  PrePagoRoute: PrePagoRoute,
   CheckoutIdRoute: CheckoutIdRoute,
   OfertaIdRoute: OfertaIdRoute,
   SucessoIdRoute: SucessoIdRoute,

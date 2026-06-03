@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverOrder } from "./delivery.server";
 import { resolveOrderId } from "./order.functions";
+import { generateMissingStickersForOrder } from "./sticker.functions";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
 
@@ -145,6 +146,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (status === "CONFIRMED") {
+      await generateMissingStickersForOrder(order.id);
       await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
       console.log("[pagamento] confirmado imediatamente", order.id);
       deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
@@ -169,6 +171,7 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           .from("orders").update({ status: "CONFIRMED" })
           .eq("id", order.id).eq("status", "PENDING").select().maybeSingle();
         if (updated) {
+          await generateMissingStickersForOrder(order.id);
           await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
           console.log("[pagamento] confirmado via polling", order.id);
           deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
