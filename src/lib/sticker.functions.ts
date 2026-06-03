@@ -234,18 +234,19 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
 PORTRAIT:
 - Keep one centered athlete only, smiling naturally, looking directly at the camera.
 - Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
-- Use realistic studio photography, soft even lighting, sharp focus, natural skin texture and professional retouching.
+- Turn the person into a polished youth football athlete portrait with realistic studio photography, soft even lighting, sharp focus, natural skin texture and professional retouching.
 - Do not cartoonize, caricature, repaint, distort, age-change, or alter the identity.
 
 WARDROBE:
-- Yellow Brazil-inspired football jersey with green collar and sleeve details, realistic athletic fabric and a clean generic shield crest on the chest.
-- Avoid malformed badges, fake brand marks, random letters, extra logos, or messy symbols.
+- The child must be wearing a Brazil national team style football uniform.
+- Use a bright yellow Brazil-style jersey with green collar, green sleeve details, realistic athletic fabric, and a clean simple shield crest on the chest.
+- The jersey should look like a professional Brazil selection football shirt, but avoid exact brand marks, sponsor marks, random letters, malformed badges, extra logos, or messy symbols.
+- Keep the shirt visible from shoulders to torso and make it one of the main premium details of the sticker.
 
 BACKGROUND:
-- Vibrant turquoise-blue sports background with huge layered numbers "23" behind the athlete in green and yellow.
-- Add depth with clean modern graphic shapes, subtle shadows, and a right-side vertical transparent "BRA" text element.
-- Add a small Brazil flag icon on the right side. Keep the background clean, not crowded.
-- Top right: simple white "FIFA" style wordmark only if it is crisp and readable; otherwise use a clean white football tournament mark.
+- Follow the provided preview/template style: turquoise, green, yellow and white World Cup inspired graphic background.
+- Use bold official-looking geometric shapes and premium print finish, but do not add the old huge "23", vertical "BRA", fake FIFA text, or improvised flags.
+- Keep the background behind the athlete clean and secondary. The child's face and Brazil-style jersey must be the visual priority.
 
 CARD DESIGN:
 - Premium official-looking football card, contemporary sports graphic design, high-quality print finish.
