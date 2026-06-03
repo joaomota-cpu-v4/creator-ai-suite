@@ -18,6 +18,7 @@ function Planos() {
   const createOrder = useServerFn(createDraftOrder);
   const [busy, setBusy] = useState<string | null>(null);
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => fetchPlans() });
+  const planList = plans.data || [];
 
   const choose = async (slug: string) => {
     setBusy(slug);
@@ -46,10 +47,30 @@ function Planos() {
         <h1 className="text-center font-display text-4xl text-primary md:text-5xl">Escolha seu pacote</h1>
         <p className="mt-2 text-center text-primary/80">Quanto mais figurinhas, mais barato fica cada uma 🎯</p>
 
+        {plans.isLoading && (
+          <Card className="mx-auto mt-8 max-w-md p-6 text-center">
+            <p className="font-semibold text-primary">Carregando planos...</p>
+          </Card>
+        )}
+
+        {plans.isError && (
+          <Card className="mx-auto mt-8 max-w-md p-6 text-center">
+            <p className="font-semibold text-primary">Nao foi possivel carregar os planos.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Verifique a conexao com Supabase e tente novamente.</p>
+          </Card>
+        )}
+
+        {!plans.isLoading && !plans.isError && planList.length === 0 && (
+          <Card className="mx-auto mt-8 max-w-md p-6 text-center">
+            <p className="font-semibold text-primary">Nenhum plano ativo encontrado.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Ative ou crie planos no painel admin.</p>
+          </Card>
+        )}
+
         <div className="mt-8 grid gap-4 md:grid-cols-4">
-          {plans.data?.map((p, i) => {
+          {planList.map((p, i) => {
             const ec = economy(p);
-            const featured = i === plans.data.length - 1;
+            const featured = i === planList.length - 1;
             return (
               <Card key={p.id} className={`relative flex flex-col p-5 ${featured ? "ring-4 ring-copa-red shadow-2xl scale-105" : ""}`}>
                 {featured && (
