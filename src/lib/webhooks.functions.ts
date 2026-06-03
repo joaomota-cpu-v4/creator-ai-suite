@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { deliverOrder, sendWebhook } from "./delivery.server";
+import { buildDeliveryPayload, deliverOrder, sendWebhook } from "./delivery.server";
 
 async function ensureAdmin(userId: string) {
   const { data } = await supabaseAdmin.from("user_roles").select("id").eq("user_id", userId).eq("role", "admin").maybeSingle();
@@ -34,22 +34,12 @@ export const resendWebhook = createServerFn({ method: "POST" })
       .from("orders").select("*").eq("id", data.orderId).maybeSingle();
     if (!order) throw new Error("Pedido não encontrado");
     const { data: stickers } = await supabaseAdmin.from("stickers")
-      .select("id, nome, figurinha_url, preview_url").eq("order_id", data.orderId);
+      .select("id, nome, email, status, figurinha_url, preview_url").eq("order_id", data.orderId);
     const { data: plan } = order.plan_id
       ? await supabaseAdmin.from("plans").select("name, slug, quantity").eq("id", order.plan_id).maybeSingle()
       : { data: null };
 
-    const payload = {
-      event: "purchase",
-      order_id: order.id,
-      status: order.status === "CONFIRMED" ? "paid" : order.status?.toLowerCase(),
-      plan: plan?.slug || null,
-      plan_name: plan?.name || null,
-      quantity: order.quantity,
-      nome: order.nome, email: order.email, telefone: order.telefone,
-      stickers: (stickers || []).map((s) => ({ sticker_id: s.id, nome: s.nome, image_url: s.figurinha_url || s.preview_url })),
-      created_at: order.created_at,
-    };
+    const payload = buildDeliveryPayload(order, plan, stickers || [], "manual_resend");
     return sendWebhook(order.id, payload);
   });
 
@@ -82,7 +72,42 @@ export const testWebhook = createServerFn({ method: "POST" })
     const url = process.env.WEBHOOK_URL;
     if (!url) return { url: null, status: null, ok: false, body: "WEBHOOK_URL não configurado", ms: 0 };
     const start = Date.now();
-    const payload = { event: "test", order_id: "test", status: "ok", timestamp: new Date().toISOString() };
-    const r = await sendWebhook("00000000-0000-0000-0000-000000000000", payload);
+    const { data: latestOrder } = await supabaseAdmin
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let payload: any;
+    let logOrderId = "00000000-0000-0000-0000-000000000000";
+    if (latestOrder) {
+      const { data: stickers } = await supabaseAdmin
+        .from("stickers")
+        .select("id, nome, email, status, figurinha_url, preview_url")
+        .eq("order_id", latestOrder.id);
+      const { data: plan } = latestOrder.plan_id
+        ? await supabaseAdmin.from("plans").select("name, slug, quantity").eq("id", latestOrder.plan_id).maybeSingle()
+        : { data: null };
+      payload = buildDeliveryPayload(latestOrder, plan, stickers || [], "test");
+      logOrderId = latestOrder.id;
+    } else {
+      payload = {
+        event: "test",
+        order_id: "test",
+        status: "ok",
+        paid: false,
+        value_centavos: 1290,
+        value_brl: 12.9,
+        customer: { name: "Cliente Teste", email: "cliente@example.com", phone: "11999999999", cpf: "00000000000" },
+        plan: { slug: "individual", name: "Individual", quantity: 1 },
+        download: { zip_url: null, success_url: null },
+        stickers: [
+          { sticker_id: "test", nome: "Figurinha Teste", image_url: "https://example.com/figurinha.png", download_url: "https://example.com/figurinha.png" },
+        ],
+        timestamp: new Date().toISOString(),
+      };
+    }
+    const r = await sendWebhook(logOrderId, payload);
     return { url, status: r.status ?? null, ok: !!r.ok, body: "Veja webhook_logs", ms: Date.now() - start };
   });

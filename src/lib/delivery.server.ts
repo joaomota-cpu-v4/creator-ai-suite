@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function deliverOrder(orderId: string) {
   const { data: order } = await supabaseAdmin
     .from("orders")
-    .select("id, status, nome, email, telefone, delivered_at, created_at, quantity, plan_id")
+    .select("id, status, metodo, asaas_payment_id, valor_centavos, nome, email, telefone, cpf, delivered_at, created_at, updated_at, quantity, plan_id")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return console.error("[delivery] pedido não encontrado", orderId);
@@ -29,29 +29,75 @@ export async function deliverOrder(orderId: string) {
   await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
     .eq("id", orderId).is("delivered_at", null);
 
-  const payload = buildPayload(order, plan, stickers || []);
+  const payload = buildDeliveryPayload(order, plan, stickers || []);
 
   await sendWebhook(orderId, payload);
   await sendEmail(order, plan, stickers || []);
 }
 
-function buildPayload(order: any, plan: any, stickers: any[]) {
+function getPublicBaseUrl() {
+  const raw =
+    process.env.APP_PUBLIC_URL ||
+    process.env.PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    process.env.URL;
+  return raw ? raw.replace(/\/+$/, "") : null;
+}
+
+function moneyBRL(cents: number | null | undefined) {
+  return Number(((cents || 0) / 100).toFixed(2));
+}
+
+export function buildDeliveryPayload(order: any, plan: any, stickers: any[], event = "purchase") {
+  const baseUrl = getPublicBaseUrl();
+  const imageStickers = stickers.map((s) => {
+    const imageUrl = s.figurinha_url || s.preview_url || null;
+    return {
+      sticker_id: s.id,
+      nome: s.nome,
+      email: s.email || order.email || null,
+      status: s.status || null,
+      image_url: imageUrl,
+      download_url: imageUrl,
+      preview_url: s.preview_url || null,
+    };
+  });
+
   return {
-    event: "purchase",
+    event,
     order_id: order.id,
-    status: "paid",
-    plan: plan?.slug || null,
+    status: order.status === "CONFIRMED" ? "paid" : order.status?.toLowerCase(),
+    paid: order.status === "CONFIRMED",
+    payment_status: order.status,
+    payment_method: order.metodo || null,
+    asaas_payment_id: order.asaas_payment_id || null,
+    value_centavos: order.valor_centavos || 0,
+    value_brl: moneyBRL(order.valor_centavos),
+    customer: {
+      name: order.nome || null,
+      email: order.email || null,
+      phone: order.telefone || null,
+      cpf: order.cpf || null,
+    },
+    plan_slug: plan?.slug || null,
     plan_name: plan?.name || null,
+    plan: {
+      slug: plan?.slug || null,
+      name: plan?.name || null,
+      quantity: plan?.quantity || order.quantity || stickers.length,
+    },
     quantity: order.quantity || stickers.length,
+    generated_count: imageStickers.length,
     nome: order.nome,
     email: order.email,
     telefone: order.telefone,
-    stickers: stickers.map((s) => ({
-      sticker_id: s.id,
-      nome: s.nome,
-      image_url: s.figurinha_url || s.preview_url,
-    })),
+    download: {
+      zip_url: baseUrl ? `${baseUrl}/api/zip/${order.id}` : null,
+      success_url: baseUrl ? `${baseUrl}/sucesso/${order.id}` : null,
+    },
+    stickers: imageStickers,
     created_at: order.created_at,
+    updated_at: order.updated_at || null,
   };
 }
 
