@@ -340,9 +340,12 @@ INPUTS:
 PORTRAIT:
 - Keep one centered athlete only, smiling naturally, looking directly at the camera.
 - Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
+- Preserve identity with high fidelity: same face shape, eye spacing, nose, mouth, cheeks, chin, hairline, age, expression and natural facial proportions.
+- Treat this as a realistic photo edit of the uploaded child, not as creating a new child who looks similar.
 - Output must look like a real high-resolution studio photograph, not an illustration.
 - Keep natural skin texture, realistic hair, realistic eyes, realistic fabric and true photographic lighting.
 - Do not cartoonize, caricature, repaint, draw, vectorize, stylize, smooth into plastic skin, or make it look AI-painted.
+- Do not beautify into a different person, change ethnicity, change age, change face geometry, change hairstyle dramatically, change eye shape, or replace the face.
 - The child should be framed from head to torso, centered, with face and Brazil jersey as the visual priority.
 
 WARDROBE:

@@ -104,8 +104,9 @@ async function callGemini(opts: GenerateOpts): Promise<{ dataUrl: string; model:
 async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model: string }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY ausente");
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini";
-  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "low";
+  const configuredModel = process.env.OPENAI_IMAGE_MODEL;
+  const model = configuredModel || "gpt-image-1.5";
+  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
   const quality = ["low", "medium", "high", "auto"].includes(requestedQuality)
     ? requestedQuality
     : "low";
@@ -113,36 +114,53 @@ async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model:
   const size = ["1024x1024", "1024x1536", "1536x1024", "auto"].includes(requestedSize)
     ? requestedSize
     : "1024x1536";
-  const form = new FormData();
-  form.append("model", model);
-  const references = [opts.imageDataUrl, ...(opts.referenceImageDataUrls || [])];
-  if (references.length > 1) {
-    references.forEach((url, index) => form.append("image[]", dataUrlToFile(url, `reference-${index + 1}.png`)));
-  } else {
-    form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
-  }
-  form.append("prompt", opts.prompt);
-  form.append("size", size);
-  form.append("quality", quality);
-  form.append("output_format", "png");
-  form.append("n", "1");
+  const buildForm = (selectedModel: string) => {
+    const form = new FormData();
+    form.append("model", selectedModel);
+    const references = [opts.imageDataUrl, ...(opts.referenceImageDataUrls || [])];
+    if (references.length > 1) {
+      references.forEach((url, index) => form.append("image[]", dataUrlToFile(url, `reference-${index + 1}.png`)));
+    } else {
+      form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
+    }
+    form.append("prompt", opts.prompt);
+    form.append("size", size);
+    form.append("quality", quality);
+    form.append("input_fidelity", "high");
+    form.append("output_format", "png");
+    form.append("n", "1");
+    return form;
+  };
 
-  const res = await fetch("https://api.openai.com/v1/images/edits", {
+  const request = (selectedModel: string) => fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
+    body: buildForm(selectedModel),
   });
+
+  let selectedModel = model;
+  let res = await request(selectedModel);
+  if (!res.ok && !configuredModel && selectedModel === "gpt-image-1.5" && [400, 404].includes(res.status)) {
+    const firstError = await res.text();
+    if (/model|gpt-image-1\.5|not found|unsupported|access/i.test(firstError)) {
+      console.warn("[AI] gpt-image-1.5 indisponivel, tentando gpt-image-1", firstError.slice(0, 300));
+      selectedModel = "gpt-image-1";
+      res = await request(selectedModel);
+    } else {
+      throw new Error(`OpenAI ${res.status}: ${firstError}`);
+    }
+  }
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const json = await res.json();
   const b64 = json?.data?.[0]?.b64_json;
-  if (b64) return { dataUrl: `data:image/png;base64,${b64}`, model };
+  if (b64) return { dataUrl: `data:image/png;base64,${b64}`, model: selectedModel };
   const url = json?.data?.[0]?.url;
   if (typeof url === "string") {
     const image = await fetch(url);
     if (!image.ok) throw new Error(`OpenAI: falha ao baixar imagem (${image.status})`);
     const contentType = image.headers.get("content-type") || "image/png";
     const base64 = await arrayBufferToBase64(await image.arrayBuffer());
-    return { dataUrl: `data:${contentType};base64,${base64}`, model };
+    return { dataUrl: `data:${contentType};base64,${base64}`, model: selectedModel };
   }
   throw new Error("OpenAI: sem imagem na resposta");
 }
