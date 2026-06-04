@@ -3,7 +3,6 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { resolveOrderId } from "./order.functions";
 import { generateSticker as aiGenerateSticker } from "./ai/providers.server";
-import { initWasm, Resvg } from "@resvg/resvg-wasm";
 
 const CreateInput = z.object({
   order_id: z.string().uuid(),
@@ -195,88 +194,166 @@ async function getStickerTemplateDataUrl() {
   }
 }
 
-async function getStickerBackgroundHref() {
-  try {
-    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
-    const { join } = await import(/* @vite-ignore */ "node:path");
-    const svg = await readFile(join(process.cwd(), "public", "assets", "sticker-preview-bg.svg"), "utf8");
-    const base64 = typeof Buffer !== "undefined"
-      ? Buffer.from(svg).toString("base64")
-      : btoa(svg);
-    return `data:image/svg+xml;base64,${base64}`;
-  } catch (e) {
-    console.warn("[sticker] background SVG unavailable", e);
-  }
-
-  const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
-  return publicBase ? `${publicBase.replace(/\/+$/, "")}/assets/sticker-preview-bg.svg` : null;
-}
-
-function escapeXml(value: string | number | null | undefined) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-const transparentPngDataUrl =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
-
-let resvgReady: Promise<void> | null = null;
-
-async function loadResvgWasm() {
+async function getStickerTemplatePngBytes() {
   const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
   if (publicBase) {
     try {
-      const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/resvg.wasm`);
+      const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/sticker-preview-bg.png`);
       if (res.ok) return new Uint8Array(await res.arrayBuffer());
-      console.warn("[sticker] resvg.wasm public fetch failed", res.status, res.statusText);
+      console.warn("[sticker] template PNG public fetch failed", res.status, res.statusText);
     } catch (e) {
-      console.warn("[sticker] resvg.wasm public fetch failed", e);
+      console.warn("[sticker] template PNG public fetch failed", e);
     }
-  }
-
-  try {
-    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
-    const { join } = await import(/* @vite-ignore */ "node:path");
-    return readFile(join(process.cwd(), "public", "assets", "resvg.wasm"));
-  } catch (e) {
-    console.warn("[sticker] local public resvg.wasm unavailable", e);
   }
 
   const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
   const { join } = await import(/* @vite-ignore */ "node:path");
-  return readFile(join(process.cwd(), "node_modules", "@resvg", "resvg-wasm", "index_bg.wasm"));
+  return readFile(join(process.cwd(), "public", "assets", "sticker-preview-bg.png"));
 }
 
-async function ensureResvgReady() {
-  if (!resvgReady) {
-    resvgReady = loadResvgWasm().then((wasm) => initWasm(wasm));
+function dataUrlToBytes(dataUrl: string) {
+  const match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+  if (!match) throw new Error("Imagem gerada em formato inválido");
+  return Uint8Array.from(atob(match[1]), (c) => c.charCodeAt(0));
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
+function rgba(r: number, g: number, b: number, a: number) {
+  return (((r & 255) << 24) | ((g & 255) << 16) | ((b & 255) << 8) | (a & 255)) >>> 0;
+}
+
+const font5x7: Record<string, string[]> = {
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  "|": ["00100", "00100", "00100", "00100", "00100", "00100", "00100"],
+  ",": ["00000", "00000", "00000", "00000", "00000", "00100", "01000"],
+  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
+  "/": ["00001", "00010", "00010", "00100", "01000", "01000", "10000"],
+  "(": ["00010", "00100", "01000", "01000", "01000", "00100", "00010"],
+  ")": ["01000", "00100", "00010", "00010", "00010", "00100", "01000"],
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+  "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  G: ["01111", "10000", "10000", "10011", "10001", "10001", "01111"],
+  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+  J: ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
+  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+};
+
+function printableText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ,.|/()-]/g, " ");
+}
+
+function measureBlockText(text: string, scale: number) {
+  const chars = printableText(text).split("");
+  return Math.max(0, chars.length * 6 * scale - scale);
+}
+
+function drawBlockText(image: any, text: string, x: number, y: number, scale: number, color: number, maxWidth?: number) {
+  const clean = printableText(text);
+  let finalScale = scale;
+  while (maxWidth && finalScale > 2 && measureBlockText(clean, finalScale) > maxWidth) finalScale -= 1;
+  let cursorX = x;
+  for (const char of clean) {
+    const glyph = font5x7[char] || font5x7[" "];
+    for (let gy = 0; gy < glyph.length; gy++) {
+      for (let gx = 0; gx < glyph[gy].length; gx++) {
+        if (glyph[gy][gx] !== "1") continue;
+        for (let py = 0; py < finalScale; py++) {
+          for (let px = 0; px < finalScale; px++) {
+            image.setPixelColor(color, cursorX + gx * finalScale + px, y + gy * finalScale + py);
+          }
+        }
+      }
+    }
+    cursorX += 6 * finalScale;
   }
-  return resvgReady;
+  return { width: measureBlockText(clean, finalScale), scale: finalScale };
 }
 
-async function renderSvgToPngBuffer(svg: string) {
-  await ensureResvgReady();
-  const renderer = new Resvg(svg, {
-    fitTo: { mode: "width", value: 608 },
-    font: {
-      loadSystemFonts: false,
-      defaultFontFamily: "Arial",
-      sansSerifFamily: "Arial",
-    },
-  });
-  try {
-    return renderer.render().asPng();
-  } finally {
-    renderer.free();
+function fillRoundedRect(image: any, x: number, y: number, w: number, h: number, r: number, color: number) {
+  for (let py = y; py < y + h; py++) {
+    for (let px = x; px < x + w; px++) {
+      const dx = px < x + r ? x + r - px : px >= x + w - r ? px - (x + w - r - 1) : 0;
+      const dy = py < y + r ? y + r - py : py >= y + h - r ? py - (y + h - r - 1) : 0;
+      if (dx * dx + dy * dy <= r * r) image.setPixelColor(color, px, py);
+    }
   }
 }
 
-async function uploadFinalStickerPng(stickerId: string, svg: string) {
-  const png = await renderSvgToPngBuffer(svg);
+async function renderFinalStickerPng(input: {
+  portraitDataUrl: string | null;
+  nome: string;
+  stats: string;
+  clube: string;
+}) {
+  const { Jimp } = await import(/* @vite-ignore */ "jimp");
+  const card = await Jimp.read(bytesToArrayBuffer(await getStickerTemplatePngBytes()));
+  card.cover({ w: 608, h: 820 });
+
+  const portrait = input.portraitDataUrl
+    ? await Jimp.read(bytesToArrayBuffer(dataUrlToBytes(input.portraitDataUrl)))
+    : new Jimp({ width: 492, height: 640, color: rgba(0, 0, 0, 0) });
+  portrait.cover({ w: 492, h: 640 });
+  card.composite(portrait, 58, 48);
+
+  const mainBar = rgba(28, 140, 147, 245);
+  const clubBar = rgba(20, 122, 130, 250);
+  const white = rgba(255, 255, 255, 255);
+  const softWhite = rgba(234, 247, 248, 255);
+  const shadow = rgba(0, 39, 118, 80);
+
+  fillRoundedRect(card, 34, 684, 540, 74, 22, shadow);
+  fillRoundedRect(card, 30, 681, 548, 75, 22, mainBar);
+  drawBlockText(card, input.nome, 55, 704, 7, white, 500);
+  drawBlockText(card, input.stats, 55, 737, 3, softWhite, 500);
+
+  fillRoundedRect(card, 109, 769, 390, 40, 12, shadow);
+  fillRoundedRect(card, 106, 766, 396, 40, 12, clubBar);
+  const clubScale = 3;
+  const clubWidth = measureBlockText(input.clube, clubScale);
+  drawBlockText(card, input.clube, Math.max(116, Math.round(304 - clubWidth / 2)), 780, clubScale, white, 376);
+
+  return card.getBuffer("image/png");
+}
+
+async function uploadFinalStickerPng(stickerId: string, png: Uint8Array | Buffer) {
   const path = `${stickerId}/figurinha.png`;
   const { error } = await supabaseAdmin.storage
     .from("stickers")
@@ -286,78 +363,38 @@ async function uploadFinalStickerPng(stickerId: string, svg: string) {
   return data.publicUrl;
 }
 
-function buildFinalStickerSvg(input: {
-  backgroundHref: string | null;
-  portraitHref: string;
-  nome: string;
-  stats: string;
-  clube: string;
-}) {
-  const bg = input.backgroundHref
-    ? `<image href="${escapeXml(input.backgroundHref)}" x="0" y="0" width="608" height="820" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect width="608" height="820" fill="#58C7CF"/>`;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="608" height="820" viewBox="0 0 608 820">
-  <defs>
-    <clipPath id="cardClip"><rect width="608" height="820" rx="24" ry="24"/></clipPath>
-    <clipPath id="playerClip"><path d="M54 46 H554 V690 H54 Z"/></clipPath>
-    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#002776" flood-opacity=".22"/></filter>
-  </defs>
-  <g clip-path="url(#cardClip)">
-    ${bg}
-    <g clip-path="url(#playerClip)" filter="url(#softShadow)">
-      <image href="${escapeXml(input.portraitHref)}" x="58" y="48" width="492" height="640" preserveAspectRatio="xMidYMin slice"/>
-    </g>
-    <rect x="30" y="681" width="548" height="75" rx="22" fill="#1C8C93"/>
-    <text x="54" y="720" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="900">${escapeXml(input.nome)}</text>
-    <text x="54" y="744" fill="#EAF7F8" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="500">${escapeXml(input.stats)}</text>
-    <rect x="106" y="766" width="396" height="40" rx="12" fill="#147A82"/>
-    <text x="304" y="791" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing=".5">${escapeXml(input.clube)}</text>
-  </g>
-</svg>`;
-}
-
 async function assertFinalStickerRendererWorks(input: { nome: string; stats: string; clube: string }) {
-  const backgroundHref = await getStickerBackgroundHref();
-  const svg = buildFinalStickerSvg({
-    backgroundHref,
-    portraitHref: transparentPngDataUrl,
+  await renderFinalStickerPng({
+    portraitDataUrl: null,
     nome: input.nome,
     stats: input.stats,
     clube: input.clube,
   });
-  await renderSvgToPngBuffer(svg);
-  return backgroundHref;
 }
 
 export async function renderStickerHealthPng() {
-  const backgroundHref = await getStickerBackgroundHref();
-  const svg = buildFinalStickerSvg({
-    backgroundHref,
-    portraitHref: transparentPngDataUrl,
+  return renderFinalStickerPng({
+    portraitDataUrl: null,
     nome: "TESTE",
     stats: "Render PNG | sem IA",
     clube: "CHECKOUT VISUAL",
   });
-  return renderSvgToPngBuffer(svg);
 }
 
 async function composeFinalStickerPng(input: {
   stickerId: string;
   portraitDataUrl: string;
-  backgroundHref: string | null;
   nome: string;
   stats: string;
   clube: string;
 }) {
-  const svg = buildFinalStickerSvg({
-    backgroundHref: input.backgroundHref,
-    portraitHref: input.portraitDataUrl,
+  const png = await renderFinalStickerPng({
+    portraitDataUrl: input.portraitDataUrl,
     nome: input.nome,
     stats: input.stats,
     clube: input.clube,
   });
-  return uploadFinalStickerPng(input.stickerId, svg);
+  return uploadFinalStickerPng(input.stickerId, png);
 }
 
 export async function generateStickerImageForRow(stickerId: string, status: "generated" | "paid" = "generated") {
@@ -426,7 +463,7 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
   const clubeUpper = (clube || "BRASIL").toUpperCase();
 
   const stats = `${nascimento} | ${altura} | ${peso}`;
-  const backgroundHref = await assertFinalStickerRendererWorks({
+  await assertFinalStickerRendererWorks({
     nome: nomeUpper,
     stats,
     clube: clubeUpper,
@@ -471,7 +508,6 @@ QUALITY RULES:
   return composeFinalStickerPng({
     stickerId,
     portraitDataUrl: result.dataUrl,
-    backgroundHref,
     nome: nomeUpper,
     stats,
     clube: clubeUpper,
