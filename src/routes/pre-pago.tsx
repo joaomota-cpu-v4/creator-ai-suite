@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { listActivePlans } from "@/lib/plans.functions";
 import { createDraftOrder, getOrderFull } from "@/lib/order.functions";
 import { createStickerDraft } from "@/lib/sticker.functions";
@@ -10,7 +10,7 @@ import { fbqTrack } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera, Loader2, ShieldCheck, Sparkles, Star, Upload, Zap } from "lucide-react";
+import { Camera, Loader2, Sparkles, Star, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
 import stickerDaviLucca from "@/assets/sticker-davi-lucca.png";
 import stickerEnzo from "@/assets/sticker-enzo.png";
@@ -45,17 +45,12 @@ function PrePago() {
   const used = orderQ.data?.stickers.length ?? 0;
   const quantity = orderQ.data?.order.quantity ?? selectedPlan?.quantity ?? 1;
 
-  useEffect(() => {
-    fbqTrack("ViewContent", { content_name: "Pre pago figurinha", content_category: "prepaid_flow" });
-  }, []);
-
   const choosePlan = async (planSlug: string) => {
     setCreatingOrder(true);
     setSelectedPlanSlug(planSlug);
     try {
       const result = await newOrder({ data: { planSlug } });
       setOrderId(result.orderId);
-      fbqTrack("Lead", { content_name: "Plano escolhido pre pago", content_category: "prepaid_plan" });
     } catch (e: any) {
       toast.error(e.message || "Nao foi possivel iniciar o pedido");
     } finally {
@@ -99,14 +94,13 @@ function PrePago() {
         content_category: "prepaid_preview",
         value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
         currency: "BRL",
+      }, {
+        email: form.email,
+        name: form.nome,
+        externalId: orderId,
       });
       await orderQ.refetch();
       if (used + 1 >= quantity) {
-        fbqTrack("InitiateCheckout", {
-          content_name: selectedPlan?.name || "Figurinha Copa",
-          value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
-          currency: "BRL",
-        });
         navigate({ to: "/checkout/$id", params: { id: orderId } });
       } else {
         setForm({ nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: form.email, foto_base64: "" });
@@ -214,11 +208,6 @@ function PrePago() {
             </div>
             {used > 0 && (
               <Button variant="outline" onClick={() => {
-                fbqTrack("InitiateCheckout", {
-                  content_name: selectedPlan?.name || "Figurinha Copa",
-                  value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
-                  currency: "BRL",
-                });
                 navigate({ to: "/checkout/$id", params: { id: orderId } });
               }}>
                 Pagar agora

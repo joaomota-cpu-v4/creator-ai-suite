@@ -46,10 +46,17 @@ function Checkout() {
 
   useEffect(() => {
     if (!orderQ.data?.order.id || !valor) return;
+    const order = orderQ.data.order;
+    const firstSticker = orderQ.data.stickers?.[0];
     fbqTrack("InitiateCheckout", {
       content_name: orderQ.data.plan?.name || "Figurinha Copa",
       value: valor / 100,
       currency: "BRL",
+    }, {
+      email: f.email || order.email || firstSticker?.email,
+      phone: f.telefone || order.telefone,
+      name: f.nome || order.nome || firstSticker?.nome,
+      externalId: order.id,
     });
   }, [orderQ.data?.order.id, orderQ.data?.plan?.name, valor]);
 
@@ -70,6 +77,11 @@ function Checkout() {
         content_name: orderQ.data?.plan?.name || "Figurinha Copa",
         value: valor / 100,
         currency: "BRL",
+      }, {
+        email: f.email,
+        phone: f.telefone,
+        name: f.nome,
+        externalId: orderQ.data?.order.id || id,
       });
       await pay({
         data: {

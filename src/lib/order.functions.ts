@@ -46,7 +46,7 @@ export const getOrderFull = createServerFn({ method: "GET" })
     if (!orderId) throw new Error("Pedido não encontrado");
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id, status, metodo, valor_centavos, quantity, plan_id, pix_qr_code, pix_copy_paste, invoice_url, nome, email, created_at")
+      .select("id, status, metodo, valor_centavos, quantity, plan_id, pix_qr_code, pix_copy_paste, invoice_url, nome, email, cpf, telefone, created_at")
       .eq("id", orderId).maybeSingle();
     if (!order) throw new Error("Pedido não encontrado");
 

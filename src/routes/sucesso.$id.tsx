@@ -40,13 +40,21 @@ function Sucesso() {
   const purchaseFired = useRef(false);
   useEffect(() => {
     if (confirmed && !purchaseFired.current) {
+      const purchaseKey = `purchase-fired:${order?.id || id}`;
+      if (typeof window !== "undefined" && window.localStorage.getItem(purchaseKey)) return;
       purchaseFired.current = true;
+      if (typeof window !== "undefined") window.localStorage.setItem(purchaseKey, "1");
       fbqTrack("Purchase", {
         value: (order?.valor_centavos || 0) / 100,
         currency: "BRL", content_name: plan?.name || "Figurinha Copa",
+      }, {
+        email: order?.email,
+        phone: order?.telefone,
+        name: order?.nome,
+        externalId: order?.id,
       });
     }
-  }, [confirmed, order?.valor_centavos, plan?.name]);
+  }, [confirmed, id, order?.email, order?.id, order?.nome, order?.telefone, order?.valor_centavos, plan?.name]);
 
   const downloadZip = async () => {
     setZipping(true);
