@@ -232,6 +232,10 @@ function PrePago() {
               </div>
               <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onPhoto(e.target.files[0])} />
             </label>
+
+            <div className="rounded-2xl border border-copa-green/25 bg-copa-green/10 p-3 text-sm leading-relaxed text-primary">
+              ⚠️ Prévia ilustrativa. A versão final é criada por IA após o pagamento, com até 90% de fidelidade à foto enviada.
+            </div>
           </div>
 
           <Button onClick={submitDraft} disabled={saving} className="mt-6 h-12 w-full bg-copa-green text-white">
@@ -285,6 +289,10 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
             PREVIA
           </div>
         )}
+
+        <div className="absolute left-1/2 top-[58%] z-[6] w-[76%] -translate-x-1/2 rounded-xl bg-black/45 px-3 py-2 text-center text-[11px] font-bold uppercase leading-tight tracking-[.08em] text-white backdrop-blur-sm">
+          Final por IA após o PIX
+        </div>
 
         <div className="absolute bottom-[64px] left-1/2 z-[5] h-[75px] w-[90%] -translate-x-1/2 rounded-[22px] bg-[#1C8C93] px-6 py-3 text-white shadow-xl">
           <div className="truncate text-[30px] font-black uppercase leading-none md:text-[36px]">{name}</div>
