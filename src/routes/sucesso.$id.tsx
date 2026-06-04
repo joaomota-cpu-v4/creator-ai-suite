@@ -36,6 +36,7 @@ function Sucesso() {
   const stickers = orderQ.data?.stickers || [];
   const plan = orderQ.data?.plan;
   const confirmed = order?.status === "CONFIRMED";
+  const generatedStickers = stickers.filter((s) => !!s.figurinha_url);
 
   const purchaseFired = useRef(false);
   useEffect(() => {
@@ -91,7 +92,14 @@ function Sucesso() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Plano <b>{plan?.name}</b> · {stickers.length} figurinha(s). Também enviamos por e-mail.
               </p>
-              {stickers.length > 1 && (
+              {generatedStickers.length === 1 && (
+                <Button asChild className="mt-4 bg-primary">
+                  <a href={generatedStickers[0].figurinha_url!} download target="_blank" rel="noreferrer">
+                    <Download className="mr-2 h-4 w-4"/>Baixar figurinha
+                  </a>
+                </Button>
+              )}
+              {generatedStickers.length > 1 && (
                 <Button onClick={downloadZip} disabled={zipping} className="mt-4 bg-primary">
                   {zipping ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Empacotando...</> : <><Package className="mr-2 h-4 w-4"/>Baixar todas (ZIP)</>}
                 </Button>
