@@ -174,24 +174,29 @@ async function bufferToDataUrl(bytes: ArrayBuffer | Uint8Array, mime = "image/pn
 
 async function getStickerTemplateDataUrl() {
   const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
+  const candidates = ["sticker-ai-reference.png", "sticker-preview-bg.png"];
   if (publicBase) {
-    try {
-      const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/sticker-preview-bg.png`);
-      if (res.ok) return bufferToDataUrl(await res.arrayBuffer(), "image/png");
-    } catch (e) {
-      console.warn("[AI] template fetch failed", e);
+    for (const file of candidates) {
+      try {
+        const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/${file}`);
+        if (res.ok) return bufferToDataUrl(await res.arrayBuffer(), "image/png");
+      } catch (e) {
+        console.warn(`[AI] template fetch failed (${file})`, e);
+      }
     }
   }
 
-  try {
-    const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
-    const { join } = await import(/* @vite-ignore */ "node:path");
-    const bytes = await readFile(join(process.cwd(), "public", "assets", "sticker-preview-bg.png"));
-    return bufferToDataUrl(bytes, "image/png");
-  } catch (e) {
-    console.warn("[AI] local template unavailable", e);
-    return null;
+  const { readFile } = await import(/* @vite-ignore */ "node:fs/promises");
+  const { join } = await import(/* @vite-ignore */ "node:path");
+  for (const file of candidates) {
+    try {
+      const bytes = await readFile(join(process.cwd(), "public", "assets", file));
+      return bufferToDataUrl(bytes, "image/png");
+    } catch (e) {
+      console.warn(`[AI] local template unavailable (${file})`, e);
+    }
   }
+  return null;
 }
 
 async function getStickerTemplatePngBytes() {
@@ -463,55 +468,51 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
   const clubeUpper = (clube || "BRASIL").toUpperCase();
 
   const stats = `${nascimento} | ${altura} | ${peso}`;
-  await assertFinalStickerRendererWorks({
-    nome: nomeUpper,
-    stats,
-    clube: clubeUpper,
-  });
-
-  const prompt = `Create a photorealistic studio football portrait only.
+  const styleReference = await getStickerTemplateDataUrl();
+  const prompt = `Generate the complete final collectible football sticker as one finished PNG image.
 
 INPUTS:
-- Image 1 is the child reference photo.
+- Image 1 is the customer child photo. Use it only for the child's identity.
+- Image 2, when provided, is the exact sticker visual reference. Follow its layout, colors, composition, spacing, bars and premium printed style as closely as possible.
 
-PORTRAIT:
-- Keep one centered athlete only, smiling naturally, looking directly at the camera.
-- Preserve the person's recognizable facial features, skin tone, hair, eyes and natural expression from the uploaded photo.
-- Preserve identity with high fidelity: same face shape, eye spacing, nose, mouth, cheeks, chin, hairline, age, expression and natural facial proportions.
-- Treat this as a realistic photo edit of the uploaded child, not as creating a new child who looks similar.
-- Output must look like a real high-resolution studio photograph, not an illustration.
-- Keep natural skin texture, realistic hair, realistic eyes, realistic fabric and true photographic lighting.
-- Do not cartoonize, caricature, repaint, draw, vectorize, stylize, smooth into plastic skin, or make it look AI-painted.
-- Do not beautify into a different person, change ethnicity, change age, change face geometry, change hairstyle dramatically, change eye shape, or replace the face.
-- The child should be framed from head to torso, centered, with face and Brazil jersey as the visual priority.
+Use the child from Image 1 inside the sticker layout. Preserve the child's real face with high fidelity: same face shape, eyes, nose, mouth, cheeks, skin tone, hair, age and natural expression. The result must look like a real studio photograph, not a drawing, not a cartoon and not a 3D render.
 
-WARDROBE:
-- The child must be wearing a Brazil national team style football uniform.
-- Use a bright yellow Brazil-style jersey with green collar, green sleeve details, realistic athletic fabric, and a clean simple shield crest on the chest.
-- The jersey should look like a professional Brazil selection football shirt, but avoid exact brand marks, sponsor marks, random letters, malformed badges, extra logos, or messy symbols.
-- Keep the shirt visible from shoulders to torso and make it one of the main premium details of the sticker.
+VISUAL REFERENCE STYLE:
+- Match Image 2, not a generic sticker.
+- Keep the same vertical 2:3 composition, deep royal blue background, large green 26 graphics, yellow block, right-side Brazil elements, top-right World Cup mark, bottom dark navy name bars and yellow Panini-style label area.
+- Replace only the child and the written data. Do not redesign the card.
+- Child centered, head and face large, shoulders wide, torso visible, occupying most of the card height like Image 2.
+- Overall finish: premium printed sticker, sharp, realistic, high resolution, clean commercial product.
 
-COMPOSITION:
-- Generate only the athlete portrait.
-- Do not generate any football card, sticker template, border, name bar, club bar, flag, logo, number, badge layout, typography, caption or written text.
-- Keep the background plain, clean and easy to crop around the athlete.
+CHILD AND UNIFORM:
+- The child must wear a Brazil national team style football jersey.
+- Bright yellow shirt, green collar, green sleeve trim, realistic fabric texture.
+- Add a clean Brazil-style football crest on the chest. Avoid malformed logos or random symbols.
+- Keep the child photorealistic with natural skin texture, realistic hair, realistic eyes and soft studio lighting.
 
-QUALITY RULES:
-- Absolutely no text or letters anywhere in the generated image.
-- Keep hands out of frame if possible. Avoid distorted face, crossed eyes, extra people, bad anatomy, blurry image, pixelation, noisy background, cut-off head, broken logos, random words, watermark, illustration style, anime style, cartoon style, oil painting, 3D render, toy look, wax skin or amateur retouching.`;
+EXACT TEXT TO PLACE ON THE CARD:
+- Main name: "${nomeUpper}"
+- Stats line: "${stats}"
+- Club/team line: "${clubeUpper}"
+
+TEXT RULES:
+- Text must be large, sharp, white or light gray, centered in the bottom bars, and readable.
+- Do not invent extra names, numbers, words or random letters.
+- If any text is difficult, prioritize the exact main name "${nomeUpper}" and stats "${stats}".
+
+NEGATIVE RULES:
+- No illustration, no anime, no cartoon, no painted look, no plastic skin, no wax face.
+- Do not change the child's identity, ethnicity, age, face geometry or hairstyle dramatically.
+- No extra people, no distorted eyes, no deformed face, no extra limbs, no blurry face, no low resolution.
+- Do not output SVG, mockup, wireframe, template-only design, plain portrait, or photo without the full sticker layout.`;
 
   const result = await aiGenerateSticker({
     prompt,
     imageDataUrl: foto_base64,
+    referenceImageDataUrls: styleReference ? [styleReference] : undefined,
     stickerId,
   });
-  return composeFinalStickerPng({
-    stickerId,
-    portraitDataUrl: result.dataUrl,
-    nome: nomeUpper,
-    stats,
-    clube: clubeUpper,
-  });
+  return result.publicUrl;
 }
 
 export const getStickerPublic = createServerFn({ method: "GET" })
