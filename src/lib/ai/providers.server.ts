@@ -54,11 +54,52 @@ async function uploadAndPublish(stickerId: string, dataUrl: string): Promise<str
   return data.publicUrl;
 }
 
-function dataUrlToFile(dataUrl: string, filename: string): File {
+function detectSupportedImageMime(bytes: Uint8Array) {
+  if (bytes.length >= 8
+    && bytes[0] === 0x89
+    && bytes[1] === 0x50
+    && bytes[2] === 0x4e
+    && bytes[3] === 0x47
+    && bytes[4] === 0x0d
+    && bytes[5] === 0x0a
+    && bytes[6] === 0x1a
+    && bytes[7] === 0x0a) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 12
+    && bytes[0] === 0x52
+    && bytes[1] === 0x49
+    && bytes[2] === 0x46
+    && bytes[3] === 0x46
+    && bytes[8] === 0x57
+    && bytes[9] === 0x45
+    && bytes[10] === 0x42
+    && bytes[11] === 0x50) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function imageExtension(mime: string) {
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "png";
+}
+
+function dataUrlToFile(dataUrl: string, name: string): File {
   const m = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
   if (!m) throw new Error("Bad image data");
   const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-  return new File([bytes], filename, { type: m[1] });
+  const detectedMime = detectSupportedImageMime(bytes);
+  if (!detectedMime) throw new Error("Imagem de entrada invalida. Use PNG, JPG ou WebP.");
+  if (detectedMime !== m[1]) {
+    console.warn(`[AI] image MIME mismatch: declared=${m[1]} detected=${detectedMime}`);
+  }
+  return new File([bytes], `${name}.${imageExtension(detectedMime)}`, { type: detectedMime });
 }
 
 async function arrayBufferToBase64(buf: ArrayBuffer): Promise<string> {
@@ -107,7 +148,7 @@ async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model:
   if (!apiKey) throw new Error("OPENAI_API_KEY ausente");
   const configuredModel = process.env.OPENAI_IMAGE_MODEL;
   const model = configuredModel || "gpt-image-1.5";
-  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "medium";
+  const requestedQuality = process.env.OPENAI_IMAGE_QUALITY || "low";
   const quality = ["low", "medium", "high", "auto"].includes(requestedQuality)
     ? requestedQuality
     : "low";
@@ -120,9 +161,9 @@ async function callOpenAI(opts: GenerateOpts): Promise<{ dataUrl: string; model:
     form.append("model", selectedModel);
     const references = [opts.imageDataUrl, ...(opts.referenceImageDataUrls || [])];
     if (references.length > 1) {
-      references.forEach((url, index) => form.append("image[]", dataUrlToFile(url, `reference-${index + 1}.png`)));
+      references.forEach((url, index) => form.append("image[]", dataUrlToFile(url, `reference-${index + 1}`)));
     } else {
-      form.append("image", dataUrlToFile(opts.imageDataUrl, "reference.jpg"));
+      form.append("image", dataUrlToFile(opts.imageDataUrl, "reference"));
     }
     form.append("prompt", opts.prompt);
     form.append("size", size);

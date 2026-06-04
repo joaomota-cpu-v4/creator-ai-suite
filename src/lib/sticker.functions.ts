@@ -172,6 +172,42 @@ async function bufferToDataUrl(bytes: ArrayBuffer | Uint8Array, mime = "image/pn
   return `data:${mime};base64,${base64}`;
 }
 
+function detectSupportedImageMime(bytes: Uint8Array) {
+  if (bytes.length >= 8
+    && bytes[0] === 0x89
+    && bytes[1] === 0x50
+    && bytes[2] === 0x4e
+    && bytes[3] === 0x47
+    && bytes[4] === 0x0d
+    && bytes[5] === 0x0a
+    && bytes[6] === 0x1a
+    && bytes[7] === 0x0a) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 12
+    && bytes[0] === 0x52
+    && bytes[1] === 0x49
+    && bytes[2] === 0x46
+    && bytes[3] === 0x46
+    && bytes[8] === 0x57
+    && bytes[9] === 0x45
+    && bytes[10] === 0x42
+    && bytes[11] === 0x50) {
+    return "image/webp";
+  }
+  return null;
+}
+
+async function imageBytesToDataUrl(bytes: ArrayBuffer | Uint8Array) {
+  const buffer = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const mime = detectSupportedImageMime(buffer);
+  if (!mime) return null;
+  return bufferToDataUrl(buffer, mime);
+}
+
 async function getStickerTemplateDataUrl() {
   const publicBase = process.env.APP_PUBLIC_URL || process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.URL;
   const candidates = ["sticker-ai-reference.png", "sticker-preview-bg.png"];
@@ -179,9 +215,15 @@ async function getStickerTemplateDataUrl() {
     for (const file of candidates) {
       try {
         const res = await fetch(`${publicBase.replace(/\/+$/, "")}/assets/${file}`);
-        if (res.ok) return bufferToDataUrl(await res.arrayBuffer(), "image/png");
+        if (!res.ok) {
+          console.warn(`[AI] sticker reference not available: ${file} (${res.status})`);
+          continue;
+        }
+        const dataUrl = await imageBytesToDataUrl(await res.arrayBuffer());
+        if (dataUrl) return dataUrl;
+        console.warn(`[AI] sticker reference has unsupported image bytes: ${file}`);
       } catch (e) {
-        console.warn(`[AI] template fetch failed (${file})`, e);
+        console.warn(`[AI] sticker reference fetch failed: ${file}`, e);
       }
     }
   }
@@ -190,10 +232,11 @@ async function getStickerTemplateDataUrl() {
   const { join } = await import(/* @vite-ignore */ "node:path");
   for (const file of candidates) {
     try {
-      const bytes = await readFile(join(process.cwd(), "public", "assets", file));
-      return bufferToDataUrl(bytes, "image/png");
+      const dataUrl = await imageBytesToDataUrl(await readFile(join(process.cwd(), "public", "assets", file)));
+      if (dataUrl) return dataUrl;
+      console.warn(`[AI] local sticker reference has unsupported image bytes: ${file}`);
     } catch (e) {
-      console.warn(`[AI] local template unavailable (${file})`, e);
+      console.warn(`[AI] local sticker reference unavailable: ${file}`, e);
     }
   }
   return null;
@@ -469,18 +512,22 @@ async function generateFigurinha({ nome, clube, foto_base64, stickerId, data_nas
 
   const stats = `${nascimento} | ${altura} | ${peso}`;
   const styleReference = await getStickerTemplateDataUrl();
+  const referenceInstructions = styleReference
+    ? `- Image 2 is the exact sticker visual reference. Follow its layout, colors, composition, spacing, bars and premium printed style as closely as possible.
+- Match Image 2, not a generic sticker.
+- Replace only the child and the written data. Do not redesign the card.`
+    : `- No visual reference image is attached. Recreate the described sticker layout as closely as possible.
+- Do not create a generic card; follow the exact layout description below.`;
   const prompt = `Generate the complete final collectible football sticker as one finished PNG image.
 
 INPUTS:
 - Image 1 is the customer child photo. Use it only for the child's identity.
-- Image 2, when provided, is the exact sticker visual reference. Follow its layout, colors, composition, spacing, bars and premium printed style as closely as possible.
+${referenceInstructions}
 
 Use the child from Image 1 inside the sticker layout. Preserve the child's real face with high fidelity: same face shape, eyes, nose, mouth, cheeks, skin tone, hair, age and natural expression. The result must look like a real studio photograph, not a drawing, not a cartoon and not a 3D render.
 
 VISUAL REFERENCE STYLE:
-- Match Image 2, not a generic sticker.
 - Keep the same vertical 2:3 composition, deep royal blue background, large green 26 graphics, yellow block, right-side Brazil elements, top-right World Cup mark, bottom dark navy name bars and yellow Panini-style label area.
-- Replace only the child and the written data. Do not redesign the card.
 - Child centered, head and face large, shoulders wide, torso visible, occupying most of the card height like Image 2.
 - Overall finish: premium printed sticker, sharp, realistic, high resolution, clean commercial product.
 
