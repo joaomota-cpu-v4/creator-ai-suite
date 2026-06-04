@@ -26,9 +26,9 @@ function PrePago() {
   const saveDraft = useServerFn(createStickerDraft);
 
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => fetchPlans() });
-  const [started, setStarted] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [selectedPlanSlug, setSelectedPlanSlug] = useState<string>("");
+  const [creatingOrder, setCreatingOrder] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: "", foto_base64: "",
@@ -49,6 +49,20 @@ function PrePago() {
     fbqTrack("ViewContent", { content_name: "Pre pago figurinha", content_category: "prepaid_flow" });
   }, []);
 
+  const choosePlan = async (planSlug: string) => {
+    setCreatingOrder(true);
+    setSelectedPlanSlug(planSlug);
+    try {
+      const result = await newOrder({ data: { planSlug } });
+      setOrderId(result.orderId);
+      fbqTrack("Lead", { content_name: "Plano escolhido pre pago", content_category: "prepaid_plan" });
+    } catch (e: any) {
+      toast.error(e.message || "Nao foi possivel iniciar o pedido");
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
+
   const onPhoto = async (file: File) => {
     if (file.size > 15 * 1024 * 1024) return toast.error("Maximo 15MB");
     try { update("foto_base64", await compressImage(file, 768, 0.75)); }
@@ -64,23 +78,13 @@ function PrePago() {
       toast.error("Informe nome, e-mail e foto");
       return;
     }
-    if (!orderId && !selectedPlanSlug && !selectedPlan?.slug) {
-      toast.error("Escolha um plano");
-      return;
-    }
+    if (!orderId) return toast.error("Escolha um plano");
 
     setSaving(true);
     try {
-      let currentOrderId = orderId;
-      if (!currentOrderId) {
-        const result = await newOrder({ data: { planSlug: selectedPlanSlug || selectedPlan!.slug } });
-        currentOrderId = result.orderId;
-        setOrderId(result.orderId);
-      }
-
       await saveDraft({
         data: {
-          order_id: currentOrderId,
+          order_id: orderId,
           nome: form.nome,
           email: form.email,
           data_nascimento: form.data_nascimento || null,
@@ -103,7 +107,7 @@ function PrePago() {
           value: selectedPlan ? selectedPlan.price_centavos / 100 : undefined,
           currency: "BRL",
         });
-        navigate({ to: "/checkout/$id", params: { id: currentOrderId } });
+        navigate({ to: "/checkout/$id", params: { id: orderId } });
       } else {
         setForm({ nome: "", data_nascimento: "", clube: "", peso_kg: "", altura_cm: "", email: form.email, foto_base64: "" });
         toast.success("Previa salva. Envie a proxima foto.");
@@ -115,69 +119,83 @@ function PrePago() {
     }
   };
 
-  if (!started) {
+  if (!orderId) {
     return (
       <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--copa-yellow)" }}>
-        <main className="px-5 py-8">
-          <div className="mx-auto max-w-md">
+        <main className="container mx-auto max-w-6xl px-5 py-8">
+          <div className="mx-auto max-w-md text-center">
             <div className="mb-3 flex items-center justify-center gap-2">
               <span className="rounded-full bg-copa-green px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                PREVIEW GRATIS ANTES DO PIX
+                PASSO 1 DE 3
               </span>
             </div>
 
             <h1 className="mx-auto max-w-sm text-center font-display text-3xl leading-[1.08] text-primary sm:text-5xl">
-              Veja a previa antes de pagar
+              Escolha seu plano
             </h1>
 
             <p className="mx-auto mt-3 max-w-xs text-center text-sm leading-relaxed text-primary/80 sm:max-w-sm sm:text-base">
-              Envie a foto, preencha os dados e veja um modelo com blur. A IA final so roda depois da confirmacao do pagamento.
+              Depois voce envia a foto e ve uma previa local antes de ir para o PIX.
             </p>
+          </div>
 
-            <div className="relative mx-auto mt-6 h-80 w-full max-w-sm sm:h-96">
+          <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-[1fr_1.1fr] md:items-center">
+            <div className="relative mx-auto h-80 w-full max-w-sm sm:h-96">
               <HeroStickerImage src={stickerMiguel} alt="Exemplo de figurinha infantil Miguel" rotate={-10} position="left-0 top-10" />
               <HeroStickerImage src={stickerEnzo} alt="Exemplo de figurinha infantil Enzo" rotate={8} position="right-0 top-4" />
               <HeroStickerImage src={stickerDaviLucca} alt="Exemplo de figurinha infantil Davi Lucca" rotate={-2} position="left-1/2 top-16 -translate-x-1/2" />
             </div>
 
-            <Button onClick={() => {
-              fbqTrack("Lead", { content_name: "Comecar pre pago", content_category: "prepaid_start" });
-              setStarted(true);
-            }} size="lg" className="mt-6 h-16 w-full rounded-2xl bg-copa-green text-lg font-bold text-white shadow-xl hover:bg-copa-green/90">
-              <Camera className="mr-2 h-5 w-5" /> Comecar - e gratis tentar
-            </Button>
-
-            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary/70">
-              <ShieldCheck className="h-3.5 w-3.5" /> Sem custo de IA antes do pagamento
-            </div>
-
-            <div className="mt-8 grid grid-cols-3 gap-2">
-              {[
-                { n: "1", t: "Foto", i: <Camera className="h-4 w-4" /> },
-                { n: "2", t: "Preview", i: <Sparkles className="h-4 w-4" /> },
-                { n: "3", t: "PIX", i: <Zap className="h-4 w-4" /> },
-              ].map((s) => (
-                <div key={s.n} className="min-w-0 rounded-2xl bg-white p-3 text-center shadow-md">
-                  <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    {s.i}
+            <div className="grid gap-3">
+              {(plans.data || []).map((plan) => (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => choosePlan(plan.slug)}
+                  disabled={creatingOrder}
+                  className="rounded-2xl border-2 border-white bg-white p-4 text-left shadow-xl transition hover:-translate-y-0.5 hover:border-copa-green disabled:cursor-wait disabled:opacity-70"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-display text-2xl text-primary">{plan.name}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {plan.quantity} figurinha{plan.quantity > 1 ? "s" : ""} com previa antes do PIX
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-copa-green">{formatBRL(plan.price_centavos)}</div>
+                      <div className="text-[11px] font-bold uppercase text-primary/60">Escolher</div>
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs font-bold text-primary">
-                    {s.n}. {s.t}
-                  </div>
-                </div>
+                </button>
               ))}
             </div>
+          </div>
 
-            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-primary/80">
-              <div className="flex">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="h-4 w-4 fill-copa-red text-copa-red" />
-                ))}
+          <div className="mx-auto mt-8 grid max-w-3xl grid-cols-3 gap-2">
+            {[
+              { n: "1", t: "Plano", i: <Sparkles className="h-4 w-4" /> },
+              { n: "2", t: "Preview", i: <Camera className="h-4 w-4" /> },
+              { n: "3", t: "PIX", i: <Zap className="h-4 w-4" /> },
+            ].map((s) => (
+              <div key={s.n} className="min-w-0 rounded-2xl bg-white p-3 text-center shadow-md">
+                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  {s.i}
+                </div>
+                <div className="mt-1 text-xs font-bold text-primary">
+                  {s.n}. {s.t}
+                </div>
               </div>
-              <span>
-                A figurinha final e gerada apos o PIX
-              </span>
+            ))}
+          </div>
+
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-primary/80">
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className="h-4 w-4 fill-copa-red text-copa-red" />
+              ))}
             </div>
+            <span>A previa nao usa IA. A final e gerada apos o PIX.</span>
           </div>
         </main>
       </div>
@@ -190,6 +208,7 @@ function PrePago() {
         <section className="rounded-3xl bg-white p-5 shadow-2xl md:p-7">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
+              <div className="mb-1 text-xs font-bold uppercase tracking-wider text-copa-green">Passo 2 de 3</div>
               <h1 className="font-display text-3xl text-primary">Criar previa</h1>
               <p className="text-sm text-muted-foreground">{used}/{quantity} previa(s) salva(s)</p>
             </div>
@@ -224,31 +243,6 @@ function PrePago() {
               </div>
               <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onPhoto(e.target.files[0])} />
             </label>
-
-            {!orderId && (
-              <div>
-                <Label>Escolha o plano</Label>
-                <div className="mt-2 grid gap-3 md:grid-cols-2">
-                  {(plans.data || []).map((plan) => {
-                    const active = (selectedPlanSlug || selectedPlan?.slug) === plan.slug;
-                    return (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        onClick={() => setSelectedPlanSlug(plan.slug)}
-                        className={`rounded-2xl border p-4 text-left transition ${active ? "border-copa-green bg-copa-green/10" : "border-primary/15 bg-white hover:border-primary/40"}`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-display text-xl text-primary">{plan.name}</span>
-                          <span className="font-bold text-copa-green">{formatBRL(plan.price_centavos)}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{plan.quantity} figurinha{plan.quantity > 1 ? "s" : ""}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           <Button onClick={submitDraft} disabled={saving} className="mt-6 h-12 w-full bg-copa-green text-white">
@@ -283,7 +277,7 @@ function PreviewCard({ form }: { form: { nome: string; data_nascimento: string; 
           <img
             src={form.foto_base64}
             alt="Previa bloqueada do jogador"
-            className="absolute left-1/2 top-[8%] z-[2] h-[76%] w-[88%] -translate-x-1/2 scale-[1.08] object-cover object-top opacity-80 blur-[7px] saturate-95"
+            className="absolute left-1/2 top-[8%] z-[2] h-[76%] w-[88%] -translate-x-1/2 scale-[1.08] object-cover object-top opacity-80 blur-[7.35px] saturate-95"
             style={{
               WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 9%, black 91%, transparent 100%), linear-gradient(180deg, black 0%, black 88%, transparent 100%)",
               WebkitMaskComposite: "source-in",
