@@ -118,7 +118,9 @@ function Sucesso() {
         ) : order?.metodo === "PIX" ? (
           <div className="mx-auto max-w-md rounded-3xl bg-white p-5 text-center shadow-2xl">
             <h1 className="font-display text-2xl text-primary">Pague o PIX para liberar</h1>
-            <p className="text-xs text-muted-foreground">Liberação automática.</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Depois de pagar, aguarde a confirmação automática. Assim que o pagamento for confirmado, suas figurinhas serão geradas e enviadas para o e-mail cadastrado.
+            </p>
             {order.pix_qr_code ? <img src={order.pix_qr_code} alt="QR PIX" className="mx-auto mt-4 w-52"/> : <div className="mt-4 rounded-xl bg-secondary/30 p-4 text-xs">Gerando QR...</div>}
             {order.pix_copy_paste && (
               <>
@@ -131,7 +133,7 @@ function Sucesso() {
             {order.invoice_url && (
               <Button asChild className="mt-3 w-full bg-copa-green text-white"><a href={order.invoice_url} target="_blank" rel="noreferrer">Abrir página de pagamento</a></Button>
             )}
-            <div className="mt-5 flex items-center justify-center gap-2 text-xs"><Loader2 className="h-4 w-4 animate-spin"/>Aguardando pagamento...</div>
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs"><Loader2 className="h-4 w-4 animate-spin"/>Aguardando confirmação do pagamento...</div>
           </div>
         ) : (
           <div className="mx-auto max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl">
