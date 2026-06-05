@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { deliverSticker } from "@/lib/delivery.server";
+import { deliverOrder } from "@/lib/delivery.server";
+import { sendMetaPurchase } from "@/lib/meta-conversions.server";
 import { generateMissingStickersForOrder } from "@/lib/sticker.functions";
 
 export const Route = createFileRoute("/api/public/asaas-webhook")({
@@ -64,10 +65,23 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         }
 
         if (paid && order?.id) {
-          await generateMissingStickersForOrder(order.id);
-          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
+          const { data: fullOrder } = await supabaseAdmin
+            .from("orders")
+            .select("*")
+            .eq("id", order.id)
+            .maybeSingle();
           console.log("[webhook] pagamento confirmado", order.id);
-          deliverSticker(order.id).catch((e) => console.error("[delivery] async err", e));
+          if (fullOrder) {
+            sendMetaPurchase(fullOrder, "asaas_webhook").catch((e) => console.error("[meta] async err", e));
+          }
+          try {
+            await generateMissingStickersForOrder(order.id);
+            await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
+          } catch (e) {
+            console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
+          } finally {
+            deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+          }
         }
 
         return new Response("ok", { status: 200 });

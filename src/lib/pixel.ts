@@ -14,6 +14,10 @@ type PixelUserData = {
   externalId?: string | null;
 };
 
+type PixelTrackOptions = {
+  eventId?: string | null;
+};
+
 function getCookie(name: string) {
   if (typeof document === "undefined") return undefined;
   return document.cookie
@@ -44,6 +48,16 @@ function getPixelIds() {
   };
 }
 
+export function getMetaAttribution() {
+  if (typeof window === "undefined") return {};
+  const { fbc, fbp } = getPixelIds();
+  return {
+    fbc,
+    fbp,
+    userAgent: window.navigator.userAgent,
+  };
+}
+
 function cleanPhone(value?: string | null) {
   return value?.replace(/\D/g, "") || undefined;
 }
@@ -68,16 +82,21 @@ function buildAdvancedMatching(userData?: PixelUserData) {
   };
 }
 
-export function fbqTrack(event: string, params?: Record<string, any>, userData?: PixelUserData) {
+export function fbqTrack(event: string, params?: Record<string, any>, userData?: PixelUserData, options?: PixelTrackOptions) {
   if (typeof window === "undefined") return;
   try {
     const matching = buildAdvancedMatching(userData);
     if (matching && Object.values(matching).some(Boolean)) {
       window.fbq?.("init", PIXEL_ID, matching);
     }
-    window.fbq?.("track", event, {
+    const payload = {
       ...params,
       ...getPixelIds(),
-    });
+    };
+    if (options?.eventId) {
+      window.fbq?.("track", event, payload, { eventID: options.eventId });
+      return;
+    }
+    window.fbq?.("track", event, payload);
   } catch {}
 }

@@ -30,9 +30,11 @@ export async function deliverOrder(orderId: string) {
 
   const webhookResult = await sendWebhook(orderId, payload);
   await sendEmail(order, plan, stickers || []);
-  if (webhookResult.ok || webhookResult.skipped) {
+  if (webhookResult.ok) {
     await supabaseAdmin.from("orders").update({ delivered_at: new Date().toISOString() })
       .eq("id", orderId).is("delivered_at", null);
+  } else if (webhookResult.skipped) {
+    console.warn("[delivery] webhook pulado; WEBHOOK_URL/N8N_WEBHOOK_URL nao configurado", { orderId });
   } else {
     console.warn("[delivery] webhook falhou, entrega permanece pendente", {
       orderId,
@@ -120,9 +122,15 @@ async function sign(body: string): Promise<string | null> {
 }
 
 export async function sendWebhook(orderId: string, payload: any, opts?: { existingLogId?: string }) {
-  const url = process.env.WEBHOOK_URL;
+  const url = process.env.WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
   if (!url) {
-    console.log("[delivery] WEBHOOK_URL não configurado");
+    console.log("[delivery] WEBHOOK_URL/N8N_WEBHOOK_URL não configurado");
+    await supabaseAdmin.from("webhook_logs").insert({
+      order_id: orderId, event_type: payload.event || "purchase",
+      webhook_url: "not_configured", request_payload: payload,
+      response_status: null, response_body: "WEBHOOK_URL/N8N_WEBHOOK_URL não configurado", success: false,
+      attempts: 0, next_retry_at: null,
+    });
     return { skipped: true };
   }
 

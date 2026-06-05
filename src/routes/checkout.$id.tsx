@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createAsaasPayment } from "@/lib/asaas.functions";
 import { getOrderFull } from "@/lib/order.functions";
 import { formatBRL } from "@/lib/price";
-import { fbqTrack } from "@/lib/pixel";
+import { fbqTrack, getMetaAttribution } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,7 @@ function Checkout() {
           order_id: orderQ.data?.order.id || id,
           nome: f.nome, cpf: f.cpf, email: f.email, telefone: f.telefone,
           metodo,
+          meta: getMetaAttribution(),
           card: metodo === "CREDIT_CARD" ? {
             holderName: f.holderName, number: f.number,
             expiryMonth: f.expiryMonth, expiryYear: f.expiryYear, ccv: f.ccv,

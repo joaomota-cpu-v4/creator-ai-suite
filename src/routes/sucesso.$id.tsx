@@ -45,6 +45,7 @@ function Sucesso() {
       if (typeof window !== "undefined" && window.localStorage.getItem(purchaseKey)) return;
       purchaseFired.current = true;
       if (typeof window !== "undefined") window.localStorage.setItem(purchaseKey, "1");
+      const eventId = `purchase-${order?.id || id}`;
       fbqTrack("Purchase", {
         value: (order?.valor_centavos || 0) / 100,
         currency: "BRL", content_name: plan?.name || "Figurinha Copa",
@@ -53,7 +54,7 @@ function Sucesso() {
         phone: order?.telefone,
         name: order?.nome,
         externalId: order?.id,
-      });
+      }, { eventId });
     }
   }, [confirmed, id, order?.email, order?.id, order?.nome, order?.telefone, order?.valor_centavos, plan?.name]);
 

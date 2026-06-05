@@ -86,6 +86,9 @@ export type Database = {
           email: string | null
           id: string
           invoice_url: string | null
+          meta_fbc: string | null
+          meta_fbp: string | null
+          meta_user_agent: string | null
           metodo: Database["public"]["Enums"]["payment_method"]
           nome: string | null
           pix_copy_paste: string | null
@@ -106,6 +109,9 @@ export type Database = {
           email?: string | null
           id?: string
           invoice_url?: string | null
+          meta_fbc?: string | null
+          meta_fbp?: string | null
+          meta_user_agent?: string | null
           metodo: Database["public"]["Enums"]["payment_method"]
           nome?: string | null
           pix_copy_paste?: string | null
@@ -126,6 +132,9 @@ export type Database = {
           email?: string | null
           id?: string
           invoice_url?: string | null
+          meta_fbc?: string | null
+          meta_fbp?: string | null
+          meta_user_agent?: string | null
           metodo?: Database["public"]["Enums"]["payment_method"]
           nome?: string | null
           pix_copy_paste?: string | null

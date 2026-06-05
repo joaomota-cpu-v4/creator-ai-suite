@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverOrder } from "./delivery.server";
 import { resolveOrderId } from "./order.functions";
 import { generateMissingStickersForOrder } from "./sticker.functions";
+import { sendMetaPurchase } from "./meta-conversions.server";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
 
@@ -52,6 +53,11 @@ const CheckoutInput = z.object({
   email: z.string().email(),
   telefone: z.string().min(8).max(20),
   metodo: z.enum(["PIX", "CREDIT_CARD"]),
+  meta: z.object({
+    fbc: z.string().optional().nullable(),
+    fbp: z.string().optional().nullable(),
+    userAgent: z.string().optional().nullable(),
+  }).optional(),
   card: z.object({
     holderName: z.string(), number: z.string(),
     expiryMonth: z.string(), expiryYear: z.string(), ccv: z.string(),
@@ -72,6 +78,21 @@ function hasValidCard(card: z.infer<typeof CheckoutInput>["card"]) {
     && card.expiryMonth.replace(/\D/g, "").length >= 1
     && card.expiryYear.replace(/\D/g, "").length >= 2
     && card.ccv.replace(/\D/g, "").length >= 3;
+}
+
+async function saveMetaAttribution(orderId: string, meta?: z.infer<typeof CheckoutInput>["meta"]) {
+  if (!meta?.fbc && !meta?.fbp && !meta?.userAgent) return;
+  const { error } = await supabaseAdmin
+    .from("orders")
+    .update({
+      meta_fbc: meta?.fbc || null,
+      meta_fbp: meta?.fbp || null,
+      meta_user_agent: meta?.userAgent || null,
+    })
+    .eq("id", orderId);
+  if (error) {
+    console.warn("[meta] attribution not saved; apply Supabase migration to store fbc/fbp", error.message);
+  }
 }
 
 export const createAsaasPayment = createServerFn({ method: "POST" })
@@ -106,6 +127,13 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       && (order.pix_qr_code || order.pix_copy_paste || order.invoice_url)
     ) {
       console.log("[pagamento] reutilizando PIX pendente", { orderId: order.id, paymentId: order.asaas_payment_id });
+      await supabaseAdmin.from("orders").update({
+        cpf: cpfClean,
+        telefone: phoneClean,
+        nome: data.nome,
+        email: data.email,
+      }).eq("id", order.id);
+      await saveMetaAttribution(order.id, data.meta);
       return {
         orderId: order.id,
         status: "PENDING",
@@ -190,12 +218,28 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       email: data.email,
     }).eq("id", order.id);
     if (error) throw new Error(error.message);
+    await saveMetaAttribution(order.id, data.meta);
 
     if (status === "CONFIRMED") {
-      await generateMissingStickersForOrder(order.id);
-      await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
       console.log("[pagamento] confirmado imediatamente", order.id);
-      deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+      sendMetaPurchase({
+        id: order.id,
+        email: data.email,
+        telefone: phoneClean,
+        nome: data.nome,
+        valor_centavos: priceCents,
+        meta_fbc: data.meta?.fbc || null,
+        meta_fbp: data.meta?.fbp || null,
+        meta_user_agent: data.meta?.userAgent || null,
+      }, "asaas_create_payment").catch((e) => console.error("[meta] async err", e));
+      try {
+        await generateMissingStickersForOrder(order.id);
+        await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
+      } catch (e) {
+        console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
+      } finally {
+        deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+      }
     }
 
     return { orderId: order.id, status, pixQr, pixCopy, invoiceUrl: payment.invoiceUrl || null };
@@ -207,7 +251,7 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
     const orderId = await resolveOrderId(data.id);
     if (!orderId) return { status: null };
     const { data: order } = await supabaseAdmin
-      .from("orders").select("id, asaas_payment_id, status").eq("id", orderId).maybeSingle();
+      .from("orders").select("*").eq("id", orderId).maybeSingle();
     if (!order || order.status === "CONFIRMED" || !order.asaas_payment_id) return { status: order?.status || null };
 
     try {
@@ -218,10 +262,16 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           .from("orders").update({ status: "CONFIRMED" })
           .eq("id", order.id).eq("status", "PENDING").select().maybeSingle();
         if (updated) {
-          await generateMissingStickersForOrder(order.id);
-          await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
           console.log("[pagamento] confirmado via polling", order.id);
-          deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+          sendMetaPurchase(order, "asaas_polling").catch((e) => console.error("[meta] async err", e));
+          try {
+            await generateMissingStickersForOrder(order.id);
+            await supabaseAdmin.from("stickers").update({ status: "paid" }).eq("order_id", order.id);
+          } catch (e) {
+            console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
+          } finally {
+            deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+          }
         }
         return { status: "CONFIRMED" };
       }
