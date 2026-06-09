@@ -97,6 +97,16 @@ async function saveMetaAttribution(orderId: string, meta?: z.infer<typeof Checko
   }
 }
 
+async function updateOrderAllowingMissingPrintablePack(orderId: string, values: Record<string, any>) {
+  let { error } = await supabaseAdmin.from("orders").update(values).eq("id", orderId);
+  if (error && /printable_pack|printable_pack_url/i.test(error.message)) {
+    const { printable_pack, printable_pack_url, ...fallbackValues } = values;
+    const fallback = await supabaseAdmin.from("orders").update(fallbackValues).eq("id", orderId);
+    error = fallback.error;
+  }
+  if (error) throw new Error(error.message);
+}
+
 export const createAsaasPayment = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutInput.parse(d))
   .handler(async ({ data }) => {
@@ -112,11 +122,22 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     const orderId = data.order_id || (await resolveOrderId(data.sticker_id!));
     if (!orderId) throw new Error("Pedido não encontrado");
 
-    const { data: order } = await supabaseAdmin
+    let { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select("id, status, sticker_id, plan_id, quantity, valor_centavos, metodo, asaas_payment_id, pix_qr_code, pix_copy_paste, invoice_url, printable_pack, printable_pack_url")
       .eq("id", orderId)
       .maybeSingle();
+    if (orderError) {
+      console.warn("[pagamento] printable pack fields unavailable, using fallback select", orderError.message);
+      const fallback = await supabaseAdmin
+        .from("orders")
+        .select("id, status, sticker_id, plan_id, quantity, valor_centavos, metodo, asaas_payment_id, pix_qr_code, pix_copy_paste, invoice_url")
+        .eq("id", orderId)
+        .maybeSingle();
+      order = fallback.data ? { ...fallback.data, printable_pack: false, printable_pack_url: null } : null;
+      orderError = fallback.error;
+    }
+    if (orderError) throw new Error(orderError.message);
     if (!order) throw new Error("Pedido não encontrado");
     if (order.status === "CONFIRMED") {
       return { orderId: order.id, status: "CONFIRMED", pixQr: null, pixCopy: null, invoiceUrl: null };
@@ -129,14 +150,14 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       && (order.pix_qr_code || order.pix_copy_paste || order.invoice_url)
     ) {
       console.log("[pagamento] reutilizando PIX pendente", { orderId: order.id, paymentId: order.asaas_payment_id });
-      await supabaseAdmin.from("orders").update({
+      await updateOrderAllowingMissingPrintablePack(order.id, {
         cpf: cpfClean,
         telefone: phoneClean,
         nome: data.nome,
         email: data.email,
         printable_pack: order.printable_pack,
         printable_pack_url: order.printable_pack_url,
-      }).eq("id", order.id);
+      });
       await saveMetaAttribution(order.id, data.meta);
       return {
         orderId: order.id,
@@ -160,10 +181,23 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       throw new Error("Envie uma foto antes de continuar para o pagamento.");
     }
 
+    let planPriceCents: number | null = null;
+    if (!(order.valor_centavos > 0) && order.plan_id) {
+      const { data: plan } = await supabaseAdmin
+        .from("plans")
+        .select("price_centavos")
+        .eq("id", order.plan_id)
+        .maybeSingle();
+      planPriceCents = plan?.price_centavos ?? null;
+    }
+
     const printablePackUrl = process.env.PRINTABLE_PACK_URL || null;
+    const orderValueCents = order.valor_centavos && order.valor_centavos > 0
+      ? order.valor_centavos
+      : (planPriceCents ?? 1290);
     const basePriceCents = Math.max(
       0,
-      (order.valor_centavos || 1290) - (order.printable_pack ? PRINTABLE_PACK_PRICE_CENTS : 0),
+      orderValueCents - (order.printable_pack ? PRINTABLE_PACK_PRICE_CENTS : 0),
     );
     const priceCents = basePriceCents + (data.printable_pack ? PRINTABLE_PACK_PRICE_CENTS : 0);
     const priceReais = Math.round(priceCents) / 100;
@@ -229,7 +263,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       value: priceReais,
     });
 
-    const { error } = await supabaseAdmin.from("orders").update({
+    await updateOrderAllowingMissingPrintablePack(order.id, {
       asaas_payment_id: payment.id,
       valor_centavos: priceCents,
       metodo: data.metodo,
@@ -243,8 +277,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       telefone: phoneClean,
       nome: data.nome,
       email: data.email,
-    }).eq("id", order.id);
-    if (error) throw new Error(error.message);
+    });
     await saveMetaAttribution(order.id, data.meta);
 
     if (status === "CONFIRMED") {

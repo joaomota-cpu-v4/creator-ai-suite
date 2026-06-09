@@ -24,10 +24,12 @@ function Checkout() {
   const fetchOrder = useServerFn(getOrderFull);
   const orderQ = useQuery({ queryKey: ["order-full", id], queryFn: () => fetchOrder({ data: { id } }) });
   const order = orderQ.data?.order;
+  const plan = orderQ.data?.plan;
   const stickers = orderQ.data?.stickers || [];
-  const baseValor = Math.max(0, (order?.valor_centavos ?? 0) - (order?.printable_pack ? printablePackPrice : 0));
+  const orderValue = order?.valor_centavos && order.valor_centavos > 0 ? order.valor_centavos : (plan?.price_centavos ?? 0);
+  const baseValor = order ? Math.max(0, orderValue - (order.printable_pack ? printablePackPrice : 0)) : 0;
   const [printablePack, setPrintablePack] = useState(false);
-  const valor = baseValor + (printablePack ? printablePackPrice : 0);
+  const valor = order ? baseValor + (printablePack ? printablePackPrice : 0) : 0;
   const formatted = formatBRL(valor);
   const readyToPay = Boolean(order)
     && stickers.length >= (order?.quantity || 1)
@@ -75,6 +77,8 @@ function Checkout() {
 
   const submit = async () => {
     if (!readyToPay) {
+      if (orderQ.isLoading) return toast.error("Aguarde carregar o pedido.");
+      if (orderQ.isError || !order) return toast.error("Pedido não carregou. Atualize a página e tente novamente.");
       return toast.error("Envie todas as fotos do plano antes de pagar.");
     }
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
@@ -123,13 +127,24 @@ function Checkout() {
       <div className="container mx-auto max-w-md px-4 py-6">
         <h1 className="font-display text-3xl text-primary">Finalizar pedido</h1>
         <p className="mt-1 text-sm text-primary/80">
-          Plano <b>{orderQ.data?.plan?.name || "..."}</b> · {orderQ.data?.order.quantity || 0} figurinha(s) · Total: <b>{formatted}</b>
+          {orderQ.isLoading ? (
+            <>Carregando pedido...</>
+          ) : orderQ.isError || !order ? (
+            <>Pedido não carregou. Atualize a página.</>
+          ) : (
+            <>Plano <b>{plan?.name || "..."}</b> · {order.quantity || plan?.quantity || 0} figurinha(s) · Total: <b>{formatted}</b></>
+          )}
         </p>
 
         <div className="mt-6 space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
-          {!orderQ.isLoading && !readyToPay && (
+          {!orderQ.isLoading && !orderQ.isError && order && !readyToPay && (
             <div className="rounded-2xl border border-copa-red/30 bg-copa-red/10 p-4 text-sm text-copa-red">
               Envie todas as fotos do plano antes de ir para o pagamento.
+            </div>
+          )}
+          {!orderQ.isLoading && (orderQ.isError || !order) && (
+            <div className="rounded-2xl border border-copa-red/30 bg-copa-red/10 p-4 text-sm text-copa-red">
+              Não foi possível carregar este pedido. Atualize a página e tente novamente.
             </div>
           )}
 
@@ -147,9 +162,11 @@ function Checkout() {
           <div
             role="button"
             tabIndex={0}
-            onClick={() => setPrintablePack((v) => !v)}
+            onClick={() => {
+              if (order) setPrintablePack((v) => !v);
+            }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
+              if (order && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 setPrintablePack((v) => !v);
               }
@@ -158,8 +175,11 @@ function Checkout() {
           >
             <Checkbox
               checked={printablePack}
+              disabled={!order}
               onClick={(event) => event.stopPropagation()}
-              onCheckedChange={(checked) => setPrintablePack(checked === true)}
+              onCheckedChange={(checked) => {
+                if (order) setPrintablePack(checked === true);
+              }}
               className="mt-1"
             />
             <span className="min-w-0 flex-1">

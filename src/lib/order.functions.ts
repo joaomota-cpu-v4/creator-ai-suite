@@ -44,10 +44,20 @@ export const getOrderFull = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const orderId = await resolveOrderId(data.id);
     if (!orderId) throw new Error("Pedido não encontrado");
-    const { data: order } = await supabaseAdmin
+    let { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select("id, status, metodo, valor_centavos, quantity, plan_id, pix_qr_code, pix_copy_paste, invoice_url, nome, email, cpf, telefone, printable_pack, printable_pack_url, created_at")
       .eq("id", orderId).maybeSingle();
+    if (orderError) {
+      console.warn("[order] printable pack fields unavailable, using fallback select", orderError.message);
+      const fallback = await supabaseAdmin
+        .from("orders")
+        .select("id, status, metodo, valor_centavos, quantity, plan_id, pix_qr_code, pix_copy_paste, invoice_url, nome, email, cpf, telefone, created_at")
+        .eq("id", orderId).maybeSingle();
+      order = fallback.data ? { ...fallback.data, printable_pack: false, printable_pack_url: null } : null;
+      orderError = fallback.error;
+    }
+    if (orderError) throw new Error(orderError.message);
     if (!order) throw new Error("Pedido não encontrado");
 
     const { data: plan } = order.plan_id
