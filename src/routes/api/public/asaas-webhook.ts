@@ -80,7 +80,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           } catch (e) {
             console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
           } finally {
-            deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+            try {
+              await deliverOrder(order.id);
+            } catch (e) {
+              console.error("[delivery] err", e);
+            }
           }
         }
 

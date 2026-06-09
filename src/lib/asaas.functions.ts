@@ -268,7 +268,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       } catch (e) {
         console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
       } finally {
-        deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+        await deliverOrder(order.id);
       }
     }
 
@@ -300,7 +300,7 @@ export const checkOrderStatus = createServerFn({ method: "POST" })
           } catch (e) {
             console.error("[sticker] geraÃ§Ã£o pÃ³s-pagamento falhou", e);
           } finally {
-            deliverOrder(order.id).catch((e) => console.error("[delivery] async err", e));
+            await deliverOrder(order.id);
           }
         }
         return { status: "CONFIRMED" };
