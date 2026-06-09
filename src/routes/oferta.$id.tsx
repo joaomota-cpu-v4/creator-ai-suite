@@ -39,6 +39,7 @@ function Oferta() {
   const order = orderQ.data?.order;
   const plan = orderQ.data?.plan;
   const stickers = orderQ.data?.stickers || [];
+  const orderValue = order?.valor_centavos && order.valor_centavos > 0 ? order.valor_centavos : (plan?.price_centavos ?? 0);
   const orderId = order?.id || id;
   const remaining = Math.max(0, (order?.quantity || 0) - stickers.length);
   const hasRemaining = remaining > 0;
@@ -87,7 +88,7 @@ function Oferta() {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <Card className="p-6">
             <div className="text-sm text-muted-foreground">Plano <b>{plan?.name}</b></div>
-            <div className="font-display text-5xl text-primary">{order ? formatBRL(order.valor_centavos) : "..."}</div>
+            <div className="font-display text-5xl text-primary">{order ? formatBRL(orderValue) : "..."}</div>
             <p className="text-sm text-muted-foreground">{stickers.length}/{order?.quantity || 0} figurinha(s)</p>
             {hasRemaining && (
               <div className="mt-4 rounded-lg border border-copa-green/30 bg-copa-green/10 p-3 text-sm text-primary">
@@ -120,7 +121,7 @@ function Oferta() {
               <p className="mb-3 text-xs text-muted-foreground">Adicione mais figurinhas com desconto antes de pagar.</p>
               <div className="space-y-2">
                 {otherPlans.map((p) => {
-                  const diff = p.price_centavos - (order?.valor_centavos || 0);
+                  const diff = p.price_centavos - orderValue;
                   const perUnit = formatBRL(p.price_centavos / p.quantity);
                   return (
                     <button key={p.id} onClick={() => upgrade(p.slug)} className="flex w-full items-center justify-between rounded-lg border-2 bg-white p-3 text-left hover:border-copa-green">

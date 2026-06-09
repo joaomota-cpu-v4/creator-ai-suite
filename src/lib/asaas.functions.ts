@@ -176,7 +176,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
     if (
       !stickers?.length
       || stickers.length < (order.quantity || 1)
-      || stickers.some((sticker) => !sticker.foto_original_path)
+      || stickers.some((sticker) => !sticker.foto_original_path && !sticker.preview_url && !sticker.figurinha_url)
     ) {
       throw new Error("Envie uma foto antes de continuar para o pagamento.");
     }
