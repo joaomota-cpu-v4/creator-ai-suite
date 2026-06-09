@@ -7,6 +7,7 @@ import { getOrderFull } from "@/lib/order.functions";
 import { formatBRL } from "@/lib/price";
 import { fbqTrack, getMetaAttribution } from "@/lib/pixel";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -16,13 +17,25 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/checkout/$id")({ component: Checkout });
 
 function Checkout() {
+  const printablePackPrice = 990;
   const { id } = useParams({ from: "/checkout/$id" });
   const navigate = useNavigate();
   const pay = useServerFn(createAsaasPayment);
   const fetchOrder = useServerFn(getOrderFull);
   const orderQ = useQuery({ queryKey: ["order-full", id], queryFn: () => fetchOrder({ data: { id } }) });
-  const valor = orderQ.data?.order.valor_centavos ?? 0;
+  const order = orderQ.data?.order;
+  const stickers = orderQ.data?.stickers || [];
+  const baseValor = Math.max(0, (order?.valor_centavos ?? 0) - (order?.printable_pack ? printablePackPrice : 0));
+  const [printablePack, setPrintablePack] = useState(false);
+  const valor = baseValor + (printablePack ? printablePackPrice : 0);
   const formatted = formatBRL(valor);
+  const readyToPay = Boolean(order)
+    && stickers.length >= (order?.quantity || 1)
+    && stickers.length > 0
+    && stickers.every((sticker) => (
+      ["generated", "paid", "delivered"].includes(sticker.status)
+      && Boolean(sticker.preview_url || sticker.figurinha_url)
+    ));
 
   const [loading, setLoading] = useState(false);
   const [metodo, setMetodo] = useState<"PIX" | "CREDIT_CARD">("PIX");
@@ -33,7 +46,10 @@ function Checkout() {
   const u = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    const order = orderQ.data?.order;
+    if (order?.printable_pack) setPrintablePack(true);
+  }, [order?.printable_pack]);
+
+  useEffect(() => {
     const firstSticker = orderQ.data?.stickers?.[0];
     if (!order && !firstSticker) return;
     setF((prev) => ({
@@ -61,6 +77,9 @@ function Checkout() {
   }, [orderQ.data?.order.id, orderQ.data?.plan?.name, valor]);
 
   const submit = async () => {
+    if (!readyToPay) {
+      return toast.error("Envie a foto e aguarde o preview da figurinha antes de pagar.");
+    }
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
     if (metodo === "CREDIT_CARD") {
       const cardOk =
@@ -88,6 +107,7 @@ function Checkout() {
           order_id: orderQ.data?.order.id || id,
           nome: f.nome, cpf: f.cpf, email: f.email, telefone: f.telefone,
           metodo,
+          printable_pack: printablePack,
           meta: getMetaAttribution(),
           card: metodo === "CREDIT_CARD" ? {
             holderName: f.holderName, number: f.number,
@@ -110,6 +130,12 @@ function Checkout() {
         </p>
 
         <div className="mt-6 space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
+          {!orderQ.isLoading && !readyToPay && (
+            <div className="rounded-2xl border border-copa-red/30 bg-copa-red/10 p-4 text-sm text-copa-red">
+              Envie a foto e aguarde o preview da figurinha antes de ir para o pagamento.
+            </div>
+          )}
+
           <h2 className="font-semibold">Seus dados</h2>
           <div className="grid gap-3">
             <div><Label>Nome completo</Label><Input value={f.nome} onChange={(e) => u("nome", e.target.value)}/></div>
@@ -118,6 +144,36 @@ function Checkout() {
               <div><Label>Telefone</Label><Input value={f.telefone} onChange={(e) => u("telefone", e.target.value)} placeholder="(11) 99999-9999"/></div>
             </div>
             <div><Label>E-mail</Label><Input type="email" value={f.email} onChange={(e) => u("email", e.target.value)}/></div>
+          </div>
+
+          <h2 className="pt-2 font-semibold">Oferta especial</h2>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setPrintablePack((v) => !v)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setPrintablePack((v) => !v);
+              }
+            }}
+            className="flex w-full items-start gap-3 rounded-2xl border-2 border-dashed border-copa-green/50 bg-copa-green/10 p-4 text-left transition hover:bg-copa-green/15"
+          >
+            <Checkbox
+              checked={printablePack}
+              onClick={(event) => event.stopPropagation()}
+              onCheckedChange={(checked) => setPrintablePack(checked === true)}
+              className="mt-1"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-primary">Adicionar pacote de figurinhas da Copa para imprimir</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Arquivo digital extra para imprimir em casa ou gráfica. Entrega junto com a figurinha personalizada.
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full bg-copa-green px-2 py-1 text-xs font-bold text-white">
+              + R$ 9,90
+            </span>
           </div>
 
           <h2 className="pt-2 font-semibold">Forma de pagamento</h2>
@@ -135,7 +191,7 @@ function Checkout() {
             </TabsContent>
           </Tabs>
 
-          <Button size="lg" onClick={submit} disabled={loading || !valor} className="h-14 w-full bg-copa-green text-lg font-bold text-white">
+          <Button size="lg" onClick={submit} disabled={loading || !valor || !readyToPay} className="h-14 w-full bg-copa-green text-lg font-bold text-white">
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Processando...</> : `Pagar ${formatted}`}
           </Button>
           <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">

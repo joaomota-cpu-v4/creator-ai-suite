@@ -94,6 +94,8 @@ export type Database = {
           pix_copy_paste: string | null
           pix_qr_code: string | null
           plan_id: string | null
+          printable_pack: boolean
+          printable_pack_url: string | null
           quantity: number
           status: Database["public"]["Enums"]["order_status"]
           sticker_id: string | null
@@ -117,6 +119,8 @@ export type Database = {
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
           plan_id?: string | null
+          printable_pack?: boolean
+          printable_pack_url?: string | null
           quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
           sticker_id?: string | null
@@ -140,6 +144,8 @@ export type Database = {
           pix_copy_paste?: string | null
           pix_qr_code?: string | null
           plan_id?: string | null
+          printable_pack?: boolean
+          printable_pack_url?: string | null
           quantity?: number
           status?: Database["public"]["Enums"]["order_status"]
           sticker_id?: string | null

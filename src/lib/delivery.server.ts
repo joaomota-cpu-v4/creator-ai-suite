@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function deliverOrder(orderId: string) {
   const { data: order } = await supabaseAdmin
     .from("orders")
-    .select("id, status, metodo, asaas_payment_id, valor_centavos, nome, email, telefone, cpf, delivered_at, created_at, updated_at, quantity, plan_id")
+    .select("id, status, metodo, asaas_payment_id, valor_centavos, nome, email, telefone, cpf, delivered_at, created_at, updated_at, quantity, plan_id, printable_pack, printable_pack_url")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return console.error("[delivery] pedido não encontrado", orderId);
@@ -94,6 +94,10 @@ export function buildDeliveryPayload(order: any, plan: any, stickers: any[], eve
       slug: plan?.slug || null,
       name: plan?.name || null,
       quantity: plan?.quantity || order.quantity || stickers.length,
+    },
+    printable_pack: {
+      included: !!order.printable_pack,
+      url: order.printable_pack_url || null,
     },
     quantity: order.quantity || stickers.length,
     generated_count: imageStickers.length,
@@ -194,11 +198,18 @@ async function sendEmail(order: any, plan: any, stickers: any[]) {
         <a href="${s.figurinha_url || s.preview_url}" style="display:inline-block;background:#009C3B;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px">📥 Baixar</a>
       </div>`).join("");
 
+    const printablePack = order.printable_pack ? `
+      <div style="background:white;border-radius:12px;padding:14px;text-align:center;margin:12px 0">
+        <p style="color:#002776;margin:0 0 8px"><b>Pacote de figurinhas para imprimir</b></p>
+        ${order.printable_pack_url ? `<a href="${order.printable_pack_url}" style="display:inline-block;background:#009C3B;color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px">Baixar pacote</a>` : ""}
+      </div>` : "";
+
     const html = `
 <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#FFD23F;border-radius:16px">
   <h1 style="color:#002776;text-align:center">⚽ ${stickers.length > 1 ? "Suas figurinhas chegaram" : "Sua figurinha chegou"}, ${order.nome || ""}!</h1>
   <p style="color:#002776;text-align:center">Pagamento confirmado${plan ? ` — plano <b>${plan.name}</b>` : ""}.</p>
   ${items}
+  ${printablePack}
   <p style="color:#002776;text-align:center;font-size:12px;margin-top:24px">Figurinha da Copa 💛💚</p>
 </div>`;
     const res = await fetch("https://api.resend.com/emails", {

@@ -7,6 +7,7 @@ import { generateMissingStickersForOrder } from "./sticker.functions";
 import { sendMetaPurchase } from "./meta-conversions.server";
 
 const ASAAS_BASE = "https://api.asaas.com/v3";
+const PRINTABLE_PACK_PRICE_CENTS = 990;
 
 async function asaas(path: string, init?: RequestInit) {
   const key = process.env.ASAAS_API_KEY;
@@ -53,6 +54,7 @@ const CheckoutInput = z.object({
   email: z.string().email(),
   telefone: z.string().min(8).max(20),
   metodo: z.enum(["PIX", "CREDIT_CARD"]),
+  printable_pack: z.boolean().optional().default(false),
   meta: z.object({
     fbc: z.string().optional().nullable(),
     fbp: z.string().optional().nullable(),
@@ -112,7 +114,7 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
 
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id, status, sticker_id, plan_id, quantity, valor_centavos, metodo, asaas_payment_id, pix_qr_code, pix_copy_paste, invoice_url")
+      .select("id, status, sticker_id, plan_id, quantity, valor_centavos, metodo, asaas_payment_id, pix_qr_code, pix_copy_paste, invoice_url, printable_pack, printable_pack_url")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) throw new Error("Pedido não encontrado");
@@ -132,6 +134,8 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
         telefone: phoneClean,
         nome: data.nome,
         email: data.email,
+        printable_pack: order.printable_pack,
+        printable_pack_url: order.printable_pack_url,
       }).eq("id", order.id);
       await saveMetaAttribution(order.id, data.meta);
       return {
@@ -143,8 +147,28 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       };
     }
 
-    // valor vem do pedido (que foi setado pelo plano)
-    const priceCents = order.valor_centavos || 1290;
+    const { data: stickers, error: stickersError } = await supabaseAdmin
+      .from("stickers")
+      .select("id, status, foto_original_path, preview_url, figurinha_url")
+      .eq("order_id", order.id);
+    if (stickersError) throw new Error(stickersError.message);
+    if (!stickers?.length || stickers.some((sticker) => !sticker.foto_original_path)) {
+      throw new Error("Envie uma foto antes de continuar para o pagamento.");
+    }
+    const notReady = stickers.some((sticker) => (
+      !["generated", "paid", "delivered"].includes(sticker.status)
+      || (!sticker.preview_url && !sticker.figurinha_url)
+    ));
+    if (notReady || stickers.length < (order.quantity || 1)) {
+      throw new Error("A figurinha ainda não foi gerada. Volte e aguarde o preview antes de pagar.");
+    }
+
+    const printablePackUrl = process.env.PRINTABLE_PACK_URL || null;
+    const basePriceCents = Math.max(
+      0,
+      (order.valor_centavos || 1290) - (order.printable_pack ? PRINTABLE_PACK_PRICE_CENTS : 0),
+    );
+    const priceCents = basePriceCents + (data.printable_pack ? PRINTABLE_PACK_PRICE_CENTS : 0);
     const priceReais = Math.round(priceCents) / 100;
 
     const customer = await getOrCreateCustomer({
@@ -162,6 +186,9 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       description: `Figurinha Copa — pedido ${order.id.slice(0, 8)}`,
       externalReference: order.id,
     };
+    if (data.printable_pack) {
+      body.description = `Figurinha Copa + pacote para imprimir - pedido ${order.id.slice(0, 8)}`;
+    }
     if (data.metodo === "CREDIT_CARD" && data.card) {
       body.creditCard = {
         holderName: data.card.holderName,
@@ -207,8 +234,11 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
 
     const { error } = await supabaseAdmin.from("orders").update({
       asaas_payment_id: payment.id,
+      valor_centavos: priceCents,
       metodo: data.metodo,
       status,
+      printable_pack: data.printable_pack,
+      printable_pack_url: data.printable_pack ? printablePackUrl : null,
       pix_qr_code: pixQr,
       pix_copy_paste: pixCopy,
       invoice_url: payment.invoiceUrl || null,

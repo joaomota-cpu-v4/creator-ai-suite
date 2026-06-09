@@ -1,0 +1,3 @@
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS printable_pack BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS printable_pack_url TEXT;

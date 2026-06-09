@@ -93,6 +93,18 @@ function Sucesso() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Plano <b>{plan?.name}</b> · {stickers.length} figurinha(s). Também enviamos por e-mail.
               </p>
+              {order?.printable_pack && (
+                <div className="mx-auto mt-4 max-w-md rounded-2xl bg-copa-green/10 p-3 text-sm text-primary">
+                  Pacote de figurinhas para imprimir incluído no pedido.
+                  {order.printable_pack_url && (
+                    <Button asChild variant="outline" className="mt-3 w-full">
+                      <a href={order.printable_pack_url} target="_blank" rel="noreferrer">
+                        <Download className="mr-2 h-4 w-4" /> Baixar pacote para imprimir
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
               {generatedStickers.length === 1 && (
                 <Button asChild className="mt-4 bg-primary">
                   <a href={generatedStickers[0].figurinha_url!} download target="_blank" rel="noreferrer">

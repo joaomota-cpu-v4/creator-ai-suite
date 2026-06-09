@@ -582,7 +582,7 @@ export const getOrderPublic = createServerFn({ method: "GET" })
     if (!orderId) return null;
     const { data: order } = await supabaseAdmin
       .from("orders")
-      .select("id, status, metodo, pix_qr_code, pix_copy_paste, invoice_url, valor_centavos")
+      .select("id, status, metodo, pix_qr_code, pix_copy_paste, invoice_url, valor_centavos, printable_pack, printable_pack_url")
       .eq("id", orderId).maybeSingle();
     return order;
   });

@@ -42,6 +42,13 @@ function Oferta() {
   const orderId = order?.id || id;
   const remaining = Math.max(0, (order?.quantity || 0) - stickers.length);
   const hasRemaining = remaining > 0;
+  const readyToPay = Boolean(order)
+    && !hasRemaining
+    && stickers.length > 0
+    && stickers.every((sticker) => (
+      ["generated", "paid", "delivered"].includes(sticker.status)
+      && Boolean(sticker.preview_url || sticker.figurinha_url)
+    ));
 
   const upgrade = async (slug: string) => {
     try {
@@ -98,9 +105,15 @@ function Oferta() {
               <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Entrega imediata</li>
               <li className="flex items-center gap-1"><Check className="h-4 w-4 text-copa-green"/>Download ZIP de todas</li>
             </ul>
-            <Button asChild size="lg" disabled={!order} className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white">
-              <Link to="/checkout/$id" params={{ id: orderId }}>{hasRemaining ? "Pagar agora mesmo assim" : "⚽ Quero pagar agora"}</Link>
-            </Button>
+            {readyToPay ? (
+              <Button asChild size="lg" className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white">
+                <Link to="/checkout/$id" params={{ id: orderId }}>⚽ Quero pagar agora</Link>
+              </Button>
+            ) : (
+              <Button size="lg" disabled className="mt-5 h-14 w-full bg-copa-red text-lg font-bold text-white">
+                Gere as figurinhas antes de pagar
+              </Button>
+            )}
           </Card>
 
           {/* Upsell */}
