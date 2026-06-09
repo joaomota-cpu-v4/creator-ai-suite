@@ -45,10 +45,7 @@ function Oferta() {
   const readyToPay = Boolean(order)
     && !hasRemaining
     && stickers.length > 0
-    && stickers.every((sticker) => (
-      ["generated", "paid", "delivered"].includes(sticker.status)
-      && Boolean(sticker.preview_url || sticker.figurinha_url)
-    ));
+    && stickers.every((sticker) => Boolean(sticker.foto_original_path || sticker.preview_url || sticker.figurinha_url));
 
   const upgrade = async (slug: string) => {
     try {

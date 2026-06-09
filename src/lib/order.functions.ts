@@ -56,7 +56,7 @@ export const getOrderFull = createServerFn({ method: "GET" })
 
     const { data: stickers } = await supabaseAdmin
       .from("stickers")
-      .select("id, nome, email, status, figurinha_url, preview_url, created_at")
+      .select("id, nome, email, status, figurinha_url, preview_url, foto_original_path, created_at")
       .eq("order_id", orderId)
       .order("created_at");
 

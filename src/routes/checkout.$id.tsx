@@ -32,10 +32,7 @@ function Checkout() {
   const readyToPay = Boolean(order)
     && stickers.length >= (order?.quantity || 1)
     && stickers.length > 0
-    && stickers.every((sticker) => (
-      ["generated", "paid", "delivered"].includes(sticker.status)
-      && Boolean(sticker.preview_url || sticker.figurinha_url)
-    ));
+    && stickers.every((sticker) => Boolean(sticker.foto_original_path || sticker.preview_url || sticker.figurinha_url));
 
   const [loading, setLoading] = useState(false);
   const [metodo, setMetodo] = useState<"PIX" | "CREDIT_CARD">("PIX");
@@ -78,7 +75,7 @@ function Checkout() {
 
   const submit = async () => {
     if (!readyToPay) {
-      return toast.error("Envie a foto e aguarde o preview da figurinha antes de pagar.");
+      return toast.error("Envie todas as fotos do plano antes de pagar.");
     }
     if (!f.nome || !f.cpf || !f.email || !f.telefone) return toast.error("Preencha seus dados");
     if (metodo === "CREDIT_CARD") {
@@ -132,7 +129,7 @@ function Checkout() {
         <div className="mt-6 space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
           {!orderQ.isLoading && !readyToPay && (
             <div className="rounded-2xl border border-copa-red/30 bg-copa-red/10 p-4 text-sm text-copa-red">
-              Envie a foto e aguarde o preview da figurinha antes de ir para o pagamento.
+              Envie todas as fotos do plano antes de ir para o pagamento.
             </div>
           )}
 

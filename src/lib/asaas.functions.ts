@@ -152,15 +152,12 @@ export const createAsaasPayment = createServerFn({ method: "POST" })
       .select("id, status, foto_original_path, preview_url, figurinha_url")
       .eq("order_id", order.id);
     if (stickersError) throw new Error(stickersError.message);
-    if (!stickers?.length || stickers.some((sticker) => !sticker.foto_original_path)) {
+    if (
+      !stickers?.length
+      || stickers.length < (order.quantity || 1)
+      || stickers.some((sticker) => !sticker.foto_original_path)
+    ) {
       throw new Error("Envie uma foto antes de continuar para o pagamento.");
-    }
-    const notReady = stickers.some((sticker) => (
-      !["generated", "paid", "delivered"].includes(sticker.status)
-      || (!sticker.preview_url && !sticker.figurinha_url)
-    ));
-    if (notReady || stickers.length < (order.quantity || 1)) {
-      throw new Error("A figurinha ainda não foi gerada. Volte e aguarde o preview antes de pagar.");
     }
 
     const printablePackUrl = process.env.PRINTABLE_PACK_URL || null;
