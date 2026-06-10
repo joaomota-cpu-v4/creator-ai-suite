@@ -49,6 +49,8 @@ function Sucesso() {
       fbqTrack("Purchase", {
         value: (order?.valor_centavos || 0) / 100,
         currency: "BRL", content_name: plan?.name || "Figurinha Copa",
+        order_id: order?.id || id,
+        payment_method: order?.metodo || undefined,
       }, {
         email: order?.email,
         phone: order?.telefone,
@@ -56,7 +58,7 @@ function Sucesso() {
         externalId: order?.id,
       }, { eventId });
     }
-  }, [confirmed, id, order?.email, order?.id, order?.nome, order?.telefone, order?.valor_centavos, plan?.name]);
+  }, [confirmed, id, order?.email, order?.id, order?.metodo, order?.nome, order?.telefone, order?.valor_centavos, plan?.name]);
 
   const downloadZip = async () => {
     setZipping(true);

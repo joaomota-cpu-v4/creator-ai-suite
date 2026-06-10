@@ -4,6 +4,7 @@ export const PIXEL_ID = "4001292026668330";
 declare global {
   interface Window {
     fbq?: (...args: any[]) => void;
+    dataLayer?: Array<Record<string, any>>;
   }
 }
 
@@ -82,9 +83,28 @@ function buildAdvancedMatching(userData?: PixelUserData) {
   };
 }
 
+const GTM_EVENT_NAMES: Record<string, string> = {
+  PageView: "page_view",
+  ViewContent: "view_content",
+  Lead: "lead",
+  InitiateCheckout: "initiate_checkout",
+  AddPaymentInfo: "add_payment_info",
+  Purchase: "purchase",
+};
+
+function pushGtmEvent(event: string, params?: Record<string, any>, eventId?: string | null) {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: GTM_EVENT_NAMES[event] || event,
+    ...params,
+    ...(eventId ? { event_id: eventId } : {}),
+  });
+}
+
 export function fbqTrack(event: string, params?: Record<string, any>, userData?: PixelUserData, options?: PixelTrackOptions) {
   if (typeof window === "undefined") return;
   try {
+    pushGtmEvent(event, params, options?.eventId);
     const matching = buildAdvancedMatching(userData);
     if (matching && Object.values(matching).some(Boolean)) {
       window.fbq?.("init", PIXEL_ID, matching);
